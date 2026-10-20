@@ -1,0 +1,157 @@
+﻿import { Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { useAuth } from "./context/AuthContext.jsx";
+import ProtectedRoute from "./routes/ProtectedRoute.jsx";
+import DashboardPage from "./pages/DashboardPage.jsx";
+import LoanProductsPage from "./pages/LoanProductsPage.jsx";
+import TransferPage from "./pages/TransferPage.jsx";
+import TransactionsPage from "./pages/TransactionsPage.jsx";
+import AccountsPage from "./pages/AccountsPage.jsx";
+import LoginPage from "./pages/LoginPage.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
+import RegisterPage from "./pages/RegisterPage.jsx";
+import SystemStatusPage from "./pages/SystemStatusPage.jsx";
+import AdminCenterPage from "./pages/AdminCenterPage.jsx";
+import OfficerCenterPage from "./pages/OfficerCenterPage.jsx";
+
+function HomePage() {
+  const { user } = useAuth();
+  return (
+    <section className="row align-items-center g-4 py-lg-4" aria-labelledby="home-heading">
+      <div className="col-lg-7">
+        <p className="eyebrow">FINNOVA BANK / COLLEGE LAB</p>
+        <h1 id="home-heading" className="display-5 fw-bold">A solid foundation for intelligent banking.</h1>
+        <p className="lead text-body-secondary my-4">
+          Banking and loan management built in verified stages.
+          Secure sign-in is now available; banking and loan pages follow.
+        </p>
+        <div className="d-flex flex-wrap gap-2">
+          {user ? (
+            <Link to="/dashboard" className="btn btn-primary btn-lg">Open dashboard</Link>
+          ) : (
+            <>
+              <Link to="/login" className="btn btn-primary btn-lg">Sign in</Link>
+              <Link to="/register" className="btn btn-outline-primary btn-lg">Create account</Link>
+            </>
+          )}
+          <Link to="/system-status" className="btn btn-link btn-lg">Check backend connection</Link>
+        </div>
+        <p className="small text-body-secondary mt-3">Synthetic data only. No real money or banking connections.</p>
+      </div>
+      <div className="col-lg-5">
+        <aside className="card border-0 shadow-sm p-2" aria-labelledby="scope-heading">
+          <div className="card-body">
+            <h2 id="scope-heading" className="h5 mb-3">Project scope</h2>
+            <ul className="list-group list-group-flush">
+              <li className="list-group-item px-0 d-flex justify-content-between gap-3">
+                <span>Sign in, register, profile</span><span className="scope-label">Available</span>
+              </li>
+              <li className="list-group-item px-0 d-flex justify-content-between gap-3">
+                <span>Customer banking</span><span className="scope-label">Coming soon</span>
+              </li>
+              <li className="list-group-item px-0 d-flex justify-content-between gap-3">
+                <span>Loan workflows</span><span className="scope-label">Coming soon</span>
+              </li>
+              <li className="list-group-item px-0 d-flex justify-content-between gap-3">
+                <span>Officer and admin tools</span><span className="scope-label">Coming soon</span>
+              </li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function NotFoundPage() {
+  return (
+    <section>
+      <h1 className="h2">Page not found</h1>
+      <p>This route is not available.</p>
+      <Link to="/" className="btn btn-primary">Return home</Link>
+    </section>
+  );
+}
+
+const navClass = ({ isActive }) => "nav-link " + (isActive ? "active" : "");
+
+export default function App() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    await logout();
+    navigate("/", { replace: true });
+  }
+
+  return (
+    <div className="app-shell">
+      <a className="skip-link" href="#main-content">Skip to content</a>
+      <header className="bg-white border-bottom">
+        <nav className="navbar container py-3 gap-3" aria-label="Main navigation">
+          <Link className="navbar-brand fw-bold m-0" to="/">
+            <span className="brand-mark me-2" aria-hidden="true">F</span>FinNova Bank
+          </Link>
+          <div className="d-flex align-items-center flex-wrap gap-3">
+            <NavLink className={navClass} to="/" end>Home</NavLink>
+            {user ? (
+              <>
+                <NavLink className={navClass} to="/dashboard">Dashboard</NavLink>
+            <NavLink className={navClass} to="/accounts">Accounts</NavLink>
+            <NavLink className={navClass} to="/transfer">Transfer Money</NavLink>
+            <NavLink className={navClass} to="/transactions">Transactions</NavLink>
+                
+                <NavLink className={navClass} to="/loan-products">Loans</NavLink>
+                <NavLink className={navClass} to="/profile">Profile</NavLink>
+                {user.role === "ADMIN" && <NavLink className={navClass} to="/admin">Admin Center</NavLink>}
+                {(user.role === "LOAN_OFFICER" || user.role === "ADMIN") && <NavLink className={navClass} to="/officer">Officer Center</NavLink>}
+              </>
+            ) : (
+              <>
+                <NavLink className={navClass} to="/login">Sign in</NavLink>
+                <NavLink className={navClass} to="/register">Register</NavLink>
+              </>
+            )}
+            <NavLink className={navClass} to="/system-status">System status</NavLink>
+            {user ? (
+              <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleLogout}>
+                Sign out
+              </button>
+            ) : null}
+            <span className="badge simulation-badge">SIMULATION ONLY</span>
+          </div>
+        </nav>
+      </header>
+      <main id="main-content" className="container flex-grow-1 py-5" tabIndex={-1}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/system-status" element={<SystemStatusPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/transfer" element={<TransferPage />} />
+        <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/accounts" element={<AccountsPage />} />
+            <Route path="/loan-products" element={<LoanProductsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+          <Route element={<ProtectedRoute roles={["ADMIN"]} />}>
+            <Route path="/admin" element={<AdminCenterPage />} />
+          </Route>
+          <Route element={<ProtectedRoute roles={["LOAN_OFFICER", "ADMIN"]} />}>
+            <Route path="/officer" element={<OfficerCenterPage />} />
+          </Route>
+          </Route>
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </main>
+      <footer className="container py-4 small text-body-secondary border-top">
+        Stage 7a: authentication pages. INR locale / Asia/Kolkata display timezone. Not a production banking service.
+      </footer>
+    </div>
+  );
+}
+
+
+
+
+

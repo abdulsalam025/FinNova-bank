@@ -1,0 +1,16 @@
+# Deliberately fixed to the separate test schema, not DB_NAME.
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/finnova_test?sslMode=REQUIRED&connectionTimeZone=%2B00:00&forceConnectionTimeZoneToSession=true&characterEncoding=UTF-8&allowMultiQueries=false
+  flyway:
+    url: ${spring.datasource.url}
+
+# TEST ONLY: a deliberately public signing key. Production has no key default.
+app:
+  security:
+    jwt-secret: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+    cookie-secure: false
+    rate-limit-enabled: false
+  loans:
+    overdue-enabled: false
+

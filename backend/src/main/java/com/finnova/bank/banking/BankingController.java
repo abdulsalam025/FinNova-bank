@@ -1,0 +1,64 @@
+package com.finnova.bank.banking;
+import java.math.BigDecimal;
+import java.net.URI;
+import java.time.LocalDate;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.finnova.bank.banking.BankingDtos.*;
+import com.finnova.bank.security.BankPrincipal;
+import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+@RestController @RequestMapping("/api")
+public class BankingController {
+    private final AccountService accounts;
+    private final TransactionService transactions;
+    private final TransferService transfers;
+    private final AccountRepository accountsRepository;
+    public BankingController(AccountService accounts,TransactionService transactions,TransferService transfers,AccountRepository accountsRepository){this.accounts=accounts;this.transactions=transactions;this.transfers=transfers;this.accountsRepository=accountsRepository;}
+    @GetMapping("/accounts") public PageView<AccountView> accounts(@AuthenticationPrincipal BankPrincipal user,
+            @RequestParam(required=false)Long customerId,@RequestParam(required=false)BankAccount.Status status,@RequestParam(required=false)String q,
+            @RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size,
+            @RequestParam(defaultValue="createdAt")String sortBy,@RequestParam(defaultValue="DESC")String sortDirection){
+        return accounts.list(user.id(),customerId,status,q,page,size,sortBy,sortDirection);
+    }
+    @GetMapping("/accounts/{id}") public AccountView account(@AuthenticationPrincipal BankPrincipal user,@PathVariable long id){return accounts.detail(user.id(),id);}
+    @PostMapping("/accounts") public ResponseEntity<AccountView> open(@AuthenticationPrincipal BankPrincipal user,@Valid @RequestBody OpenAccountRequest request){
+        var body=accounts.open(user.id(),request);return ResponseEntity.created(URI.create("/api/accounts/"+body.id())).body(body);
+    }
+    @PatchMapping("/accounts/{id}") public AccountView rename(@AuthenticationPrincipal BankPrincipal user,@PathVariable long id,@Valid @RequestBody RenameAccountRequest request){return accounts.rename(user.id(),id,request);}
+    @PostMapping("/accounts/{id}/close") public AccountView close(@AuthenticationPrincipal BankPrincipal user,@PathVariable long id){return accounts.close(user.id(),id);}
+    @GetMapping("/transactions") public PageView<TransactionView> transactions(@AuthenticationPrincipal BankPrincipal user,
+            @RequestParam(required=false)Long customerId,@RequestParam(required=false)Long accountId,@RequestParam(required=false)String q,
+            @RequestParam(required=false)String type,@RequestParam(required=false)String direction,
+            @RequestParam(required=false)@DateTimeFormat(iso=DateTimeFormat.ISO.DATE)LocalDate from,
+            @RequestParam(required=false)@DateTimeFormat(iso=DateTimeFormat.ISO.DATE)LocalDate to,
+            @RequestParam(required=false)BigDecimal minAmount,@RequestParam(required=false)BigDecimal maxAmount,
+            @RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size,
+            @RequestParam(defaultValue="createdAt")String sortBy,@RequestParam(defaultValue="DESC")String sortDirection){
+        return transactions.list(user.id(),customerId,accountId,q,type,direction,from,to,minAmount,maxAmount,page,size,sortBy,sortDirection);
+    }
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @GetMapping("/transfer-recipients")
+    public RecipientView findTransferRecipient(
+            @AuthenticationPrincipal BankPrincipal user,
+            @RequestParam String accountNumber) {
+        if (accountNumber == null || !accountNumber.matches("[A-Za-z0-9]{8,24}")) {
+            throw new com.finnova.bank.common.ApiException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Eligible recipient not found.");
+        }
+        var recipient = accountsRepository.findEligibleRecipientByAccountNumber(accountNumber.trim().toUpperCase())
+                .orElseThrow(() -> new com.finnova.bank.common.ApiException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Eligible recipient not found."));
+        String number = recipient.getAccountNumber();
+        String masked = number.length() <= 4 ? "****" : "****" + number.substring(number.length() - 4);
+        return new RecipientView(recipient.getAccountId(), recipient.getRecipientName(), masked, recipient.getCurrency());
+    }
+    @PostMapping("/transfers") public ResponseEntity<JsonNode> transfer(@AuthenticationPrincipal BankPrincipal user,
+            @RequestHeader(value="Idempotency-Key",required=false)String key,@Valid @RequestBody TransferRequest request){
+        var reply=transfers.transfer(user.id(),key,request);
+        return ResponseEntity.status(reply.status()).header("Idempotency-Replayed",Boolean.toString(reply.replayed())).body(reply.body());
+    }
+}

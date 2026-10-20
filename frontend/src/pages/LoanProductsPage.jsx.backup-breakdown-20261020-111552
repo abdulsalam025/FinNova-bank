@@ -1,0 +1,402 @@
+﻿import { useCallback, useEffect, useState } from "react";
+import { getLoanQuote, listLoanProducts } from "../api/loans.js";
+
+function money(value) {
+  if (value == null || value === "") return "—";
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(Number(value));
+}
+
+function rate(value) {
+  return value == null ? "—" : `${Number(value).toFixed(2)}%`;
+}
+
+function errorText(error) {
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.detail ||
+    error?.response?.data?.error ||
+    error?.message ||
+    "Something went wrong. Please try again."
+  );
+}
+
+export default function LoanProductsPage() {
+  const [products, setProducts] = useState([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [principal, setPrincipal] = useState("100000");
+  const [months, setMonths] = useState("12");
+  const [annualRate, setAnnualRate] = useState("");
+  const [quote, setQuote] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [quoting, setQuoting] = useState(false);
+  const [error, setError] = useState("");
+  const [quoteError, setQuoteError] = useState("");
+
+  const loadProducts = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const data = await listLoanProducts({ page: 0, size: 100 });
+      const items = Array.isArray(data) ? data : data?.items ?? [];
+
+      setProducts(items);
+      setSelectedId((current) =>
+        items.some((product) => String(product.id) === current)
+          ? current
+          : String(items[0]?.id ?? "")
+      );
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  const selectedProduct = products.find(
+    (product) => String(product.id) === selectedId
+  );
+
+  async function calculateQuote(event) {
+    event.preventDefault();
+    setQuote(null);
+    setQuoteError("");
+
+    const amount = Number(principal);
+    const term = Number(months);
+    const product = selectedProduct;
+
+    if (!product) {
+      setQuoteError("Choose a loan product.");
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setQuoteError("Enter a valid loan amount.");
+      return;
+    }
+
+    if (!Number.isInteger(term) || term <= 0) {
+      setQuoteError("Enter a valid loan tenure in months.");
+      return;
+    }
+
+    if (amount < Number(product.minPrincipal) ||
+        amount > Number(product.maxPrincipal)) {
+      setQuoteError(
+        `This product allows a principal between ${money(product.minPrincipal)} and ${money(product.maxPrincipal)}.`
+      );
+      return;
+    }
+
+    if (term < product.minTenureMonths ||
+        term > product.maxTenureMonths ||
+        (term - product.minTenureMonths) % product.tenureStepMonths !== 0) {
+      setQuoteError(
+        `Choose a tenure from ${product.minTenureMonths} to ${product.maxTenureMonths} months in steps of ${product.tenureStepMonths}.`
+      );
+      return;
+    }
+
+    if (annualRate !== "") {
+      const requestedRate = Number(annualRate);
+      if (!Number.isFinite(requestedRate) ||
+          requestedRate < Number(product.minAnnualRate) ||
+          requestedRate > Number(product.maxAnnualRate)) {
+        setQuoteError(
+          `The optional rate must be between ${rate(product.minAnnualRate)} and ${rate(product.maxAnnualRate)}.`
+        );
+        return;
+      }
+    }
+
+    setQuoting(true);
+    try {
+      const result = await getLoanQuote(
+        product.id,
+        amount,
+        term,
+        annualRate
+      );
+      setQuote(result);
+    } catch (err) {
+      setQuoteError(errorText(err));
+    } finally {
+      setQuoting(false);
+    }
+  }
+
+  return (
+    <main className="container py-4 py-lg-5">
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+          <p className="text-primary fw-semibold mb-1">FINNOVA LENDING</p>
+          <h1 className="h2 fw-bold mb-1">Loan Products</h1>
+          <p className="text-secondary mb-0">
+            Explore available products and calculate an estimated repayment.
+          </p>
+        </div>
+        <button
+          className="btn btn-outline-primary"
+          onClick={loadProducts}
+          disabled={loading}
+        >
+          Refresh products
+        </button>
+      </div>
+
+      {error && <div className="alert alert-danger" role="alert">{error}</div>}
+
+      {loading ? (
+        <div className="card border-0 shadow-sm">
+          <div className="card-body p-4 text-secondary">Loading loan products…</div>
+        </div>
+      ) : products.length === 0 ? (
+        <div className="alert alert-info">
+          No loan products were returned by the backend.
+        </div>
+      ) : (
+        <>
+          <div className="row g-3 mb-4">
+            {products.map((product) => (
+              <div className="col-md-6 col-xl-4" key={product.id}>
+                <button
+                  type="button"
+                  className={`card h-100 w-100 text-start shadow-sm ${
+                    String(product.id) === selectedId
+                      ? "border-primary border-2"
+                      : "border-0"
+                  }`}
+                  onClick={() => {
+                    setSelectedId(String(product.id));
+                    setQuote(null);
+                    setQuoteError("");
+                  }}
+                >
+                  <div className="card-body p-4">
+                    <div className="d-flex justify-content-between align-items-start gap-2 mb-3">
+                      <span className="badge text-bg-primary">{product.code}</span>
+                      {String(product.id) === selectedId && (
+                        <span className="badge text-bg-success">Selected</span>
+                      )}
+                    </div>
+                    <h2 className="h5 fw-bold">{product.name}</h2>
+                    <p className="text-secondary small">
+                      {product.description || "Loan product details provided by the bank."}
+                    </p>
+                    <div className="mb-2">
+                      <span className="text-secondary small">Annual interest rate</span>
+                      <div className="fw-bold">
+                        {rate(product.minAnnualRate)} – {rate(product.maxAnnualRate)}
+                      </div>
+                    </div>
+                    <div className="mb-2">
+                      <span className="text-secondary small">Principal range</span>
+                      <div className="fw-semibold">
+                        {money(product.minPrincipal)} – {money(product.maxPrincipal)}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-secondary small">Tenure</span>
+                      <div className="fw-semibold">
+                        {product.minTenureMonths}–{product.maxTenureMonths} months
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="row g-4">
+            <div className="col-lg-5">
+              <section className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4">
+                  <h2 className="h5 fw-bold mb-1">EMI Calculator</h2>
+                  <p className="text-secondary small mb-4">
+                    The backend calculates the quote using its loan rules.
+                  </p>
+
+                  <form onSubmit={calculateQuote}>
+                    <div className="mb-3">
+                      <label htmlFor="loanProduct" className="form-label">Product</label>
+                      <select
+                        id="loanProduct"
+                        className="form-select"
+                        value={selectedId}
+                        onChange={(event) => {
+                          setSelectedId(event.target.value);
+                          setQuote(null);
+                          setQuoteError("");
+                        }}
+                        required
+                      >
+                        {products.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="loanPrincipal" className="form-label">
+                        Loan amount (₹)
+                      </label>
+                      <input
+                        id="loanPrincipal"
+                        className="form-control"
+                        type="number"
+                        min={selectedProduct?.minPrincipal ?? "0.01"}
+                        max={selectedProduct?.maxPrincipal}
+                        step="0.01"
+                        value={principal}
+                        onChange={(event) => {
+                          setPrincipal(event.target.value);
+                          setQuote(null);
+                        }}
+                        required
+                      />
+                      {selectedProduct && (
+                        <div className="form-text">
+                          Min {money(selectedProduct.minPrincipal)} · Max {money(selectedProduct.maxPrincipal)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="loanMonths" className="form-label">
+                        Tenure (months)
+                      </label>
+                      <input
+                        id="loanMonths"
+                        className="form-control"
+                        type="number"
+                        min={selectedProduct?.minTenureMonths ?? 1}
+                        max={selectedProduct?.maxTenureMonths ?? 600}
+                        step={selectedProduct?.tenureStepMonths ?? 1}
+                        value={months}
+                        onChange={(event) => {
+                          setMonths(event.target.value);
+                          setQuote(null);
+                        }}
+                        required
+                      />
+                    </div>
+
+                    <div className="mb-4">
+                      <label htmlFor="annualRate" className="form-label">
+                        Annual interest rate override (optional)
+                      </label>
+                      <input
+                        id="annualRate"
+                        className="form-control"
+                        type="number"
+                        min={selectedProduct?.minAnnualRate ?? 0}
+                        max={selectedProduct?.maxAnnualRate}
+                        step="0.01"
+                        value={annualRate}
+                        onChange={(event) => {
+                          setAnnualRate(event.target.value);
+                          setQuote(null);
+                        }}
+                        placeholder="Use product's default rate"
+                      />
+                    </div>
+
+                    {quoteError && (
+                      <div className="alert alert-danger" role="alert">{quoteError}</div>
+                    )}
+
+                    <button
+                      className="btn btn-primary w-100"
+                      type="submit"
+                      disabled={quoting || !selectedId}
+                    >
+                      {quoting ? "Calculating…" : "Calculate EMI"}
+                    </button>
+                  </form>
+                </div>
+              </section>
+            </div>
+
+            <div className="col-lg-7">
+              <section className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4">
+                  <h2 className="h5 fw-bold mb-1">Repayment estimate</h2>
+                  <p className="text-secondary small mb-4">
+                    Figures below appear after a successful quote from the server.
+                  </p>
+
+                  {!quote ? (
+                    <div className="rounded bg-light p-4 text-center">
+                      <div className="display-6 mb-2">₹</div>
+                      <p className="text-secondary mb-0">
+                        Choose a product and calculate your estimated EMI.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded bg-primary text-white p-4 mb-3">
+                        <div className="small opacity-75">Estimated monthly EMI</div>
+                        <div className="display-5 fw-bold">
+                          {money(quote.calculation?.emi)}
+                        </div>
+                        <div className="small opacity-75 mt-2">
+                          {quote.months} months · {rate(quote.annualRate)} annual interest
+                        </div>
+                      </div>
+
+                      <div className="row g-3">
+                        <div className="col-sm-6">
+                          <div className="border rounded p-3 h-100">
+                            <div className="small text-secondary">Principal</div>
+                            <div className="h5 fw-bold mb-0">{money(quote.principal)}</div>
+                          </div>
+                        </div>
+                        <div className="col-sm-6">
+                          <div className="border rounded p-3 h-100">
+                            <div className="small text-secondary">Total interest</div>
+                            <div className="h5 fw-bold mb-0">
+                              {money(quote.calculation?.totalInterest)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="col-sm-6">
+                          <div className="border rounded p-3 h-100">
+                            <div className="small text-secondary">Total repayment</div>
+                            <div className="h5 fw-bold mb-0">
+                              {money(quote.calculation?.totalPayment)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="col-sm-6">
+                          <div className="border rounded p-3 h-100">
+                            <div className="small text-secondary">Loan tenure</div>
+                            <div className="h5 fw-bold mb-0">{quote.months} months</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="small text-secondary mt-3 mb-0">
+                        This is an estimate, not loan approval. Actual terms depend on the product and the bank's application review.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </section>
+            </div>
+          </div>
+        </>
+      )}
+    </main>
+  );
+}

@@ -1,0 +1,574 @@
+﻿Frontend file list:
+.\frontend\src\App.jsx
+.\frontend\src\App.jsx.backup-20261018-230643
+.\frontend\src\App.jsx.backup-20261018-231401
+.\frontend\src\App.jsx.backup-admin-20261020-114336
+.\frontend\src\App.jsx.backup-admin-button-20261020-115323
+.\frontend\src\App.jsx.backup-loans-20261018-232202
+.\frontend\src\App.jsx.before-auth-20261018-223527.bak
+.\frontend\src\main.jsx
+.\frontend\src\styles.css
+.\frontend\src\api\accounts.js
+.\frontend\src\api\auth.js
+.\frontend\src\api\health.js
+.\frontend\src\api\http.js
+.\frontend\src\api\loans.js
+.\frontend\src\api\transactions.js
+.\frontend\src\api\transfers.js
+.\frontend\src\api\transfers.js.bak-20261019-023749
+.\frontend\src\auth\AuthContext.jsx
+.\frontend\src\components\FormField.jsx
+.\frontend\src\context\AuthContext.jsx
+.\frontend\src\pages\AccountsPage.jsx
+.\frontend\src\pages\AdminCenterPage.jsx
+.\frontend\src\pages\DashboardPage.jsx
+.\frontend\src\pages\LoanProductsPage.jsx
+.\frontend\src\pages\LoanProductsPage.jsx.backup-20261020-112133
+.\frontend\src\pages\LoanProductsPage.jsx.backup-20261020-112709
+.\frontend\src\pages\LoanProductsPage.jsx.backup-20261020-112910
+.\frontend\src\pages\LoanProductsPage.jsx.backup-breakdown-20261020-111552
+.\frontend\src\pages\LoginPage.jsx
+.\frontend\src\pages\OfficerCenterPage.jsx
+.\frontend\src\pages\ProfilePage.jsx
+.\frontend\src\pages\RegisterPage.jsx
+.\frontend\src\pages\SystemStatusPage.jsx
+.\frontend\src\pages\TransactionsPage.jsx
+.\frontend\src\pages\TransferPage.jsx
+.\frontend\src\pages\TransferPage.jsx.bak-20261019-023749
+.\frontend\src\routes\ProtectedRoute.jsx
+.\frontend\src\utils\errors.js
+.\frontend\src\utils\format.js
+.\frontend\src\utils\validators.js
+
+===== C:\Users\Abdul Salam\finnova-bank\backend\src\main\java\com\finnova\bank\admin\ManagementController.java =====
+package com.finnova.bank.admin;
+import java.time.LocalDate;
+import com.finnova.bank.admin.AdminDtos.*;
+import com.finnova.bank.audit.AuditQueryService;
+import com.finnova.bank.auth.domain.Role;
+import com.finnova.bank.banking.BankingDtos.PageView;
+import com.finnova.bank.loans.ProductAdminService;
+import com.finnova.bank.officer.*;
+import com.finnova.bank.reports.*;
+import com.finnova.bank.reports.ReportDtos.*;
+import com.finnova.bank.security.BankPrincipal;
+import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+@RestController@RequestMapping("/api")
+public class ManagementController {
+    private final UserAdminService users;private final ProductAdminService products;private final KycService kyc;private final AuditQueryService audit;private final DecisionService decisions;private final ReportService reports;
+    public ManagementController(UserAdminService users,ProductAdminService products,KycService kyc,AuditQueryService audit,DecisionService decisions,ReportService reports){this.users=users;this.products=products;this.kyc=kyc;this.audit=audit;this.decisions=decisions;this.reports=reports;}
+    @GetMapping("/admin/users")public PageView<UserView> users(@AuthenticationPrincipal BankPrincipal actor,@RequestParam(required=false)String q,@RequestParam(required=false)Role role,@RequestParam(required=false)Boolean enabled,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size,@RequestParam(defaultValue="createdAt")String sortBy,@RequestParam(defaultValue="DESC")String sortDirection){return users.list(actor.id(),q,role,enabled,page,size,sortBy,sortDirection);}
+    @GetMapping("/admin/users/{id}")public UserView user(@AuthenticationPrincipal BankPrincipal actor,@PathVariable long id){return users.detail(actor.id(),id);}
+    @PutMapping("/admin/users/{id}/activation")public UserView activate(@AuthenticationPrincipal BankPrincipal actor,@PathVariable long id,@Valid@RequestBody Activation body){return users.activate(actor.id(),id,body);}
+    @PutMapping("/admin/users/{id}/role")public UserView role(@AuthenticationPrincipal BankPrincipal actor,@PathVariable long id,@Valid@RequestBody AssignRole body){return users.role(actor.id(),id,body);}
+    @GetMapping("/admin/loan-products")public PageView<ProductAdminService.View> products(@AuthenticationPrincipal BankPrincipal actor,@RequestParam(required=false)Boolean active,@RequestParam(required=false)String q,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size){return products.list(actor.id(),active,q,page,size);}
+    @GetMapping("/admin/loan-products/{id}")public ProductAdminService.View product(@AuthenticationPrincipal BankPrincipal actor,@PathVariable long id){return products.detail(actor.id(),id);}
+    @PostMapping("/admin/loan-products")@ResponseStatus(HttpStatus.CREATED)public ProductAdminService.View product(@AuthenticationPrincipal BankPrincipal actor,@Valid@RequestBody ProductAdminService.Create body){return products.create(actor.id(),body);}
+    @PutMapping("/admin/loan-products/{id}")public ProductAdminService.View product(@AuthenticationPrincipal BankPrincipal actor,@PathVariable long id,@Valid@RequestBody ProductAdminService.Update body){return products.update(actor.id(),id,body);}
+    @PutMapping("/admin/loan-products/{id}/activation")public ProductAdminService.View productActive(@AuthenticationPrincipal BankPrincipal actor,@PathVariable long id,@Valid@RequestBody Activation body){return products.activate(actor.id(),id,body);}
+    @GetMapping("/officer/kyc")public PageView<KycDtos.View> kyc(@AuthenticationPrincipal BankPrincipal actor,@RequestParam(required=false)String status,@RequestParam(required=false)String q,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size){return kyc.list(actor.id(),status,q,page,size);}
+    @GetMapping("/officer/kyc/{id}")public KycDtos.View kyc(@AuthenticationPrincipal BankPrincipal actor,@PathVariable long id){return kyc.detail(actor.id(),id);}
+    @PostMapping("/officer/kyc/{id}/decision")public KycDtos.View review(@AuthenticationPrincipal BankPrincipal actor,@PathVariable long id,@Valid@RequestBody KycDtos.Review body){return kyc.review(actor.id(),id,body);}
+    @GetMapping("/kyc")public KycDtos.View ownKyc(@AuthenticationPrincipal BankPrincipal actor){return kyc.own(actor.id());}
+    @PostMapping("/kyc/resubmit")public java.util.Map<String,Object> resubmit(@AuthenticationPrincipal BankPrincipal actor,@Valid@RequestBody KycDtos.Resubmit body){return kyc.resubmit(actor.id(),body.reason());}
+    @GetMapping("/audit-logs")public PageView<AuditQueryService.View> audit(@AuthenticationPrincipal BankPrincipal actor,@RequestParam(required=false)Long actorId,@RequestParam(required=false)String eventType,@RequestParam(required=false)String outcome,@RequestParam(required=false)String q,
+        @RequestParam(required=false)@DateTimeFormat(iso=DateTimeFormat.ISO.DATE)LocalDate from,@RequestParam(required=false)@DateTimeFormat(iso=DateTimeFormat.ISO.DATE)LocalDate to,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size){return audit.search(actor.id(),actorId,eventType,outcome,q,from,to,page,size);}
+    @GetMapping("/officer/decisions")public PageView<DecisionService.View> ownDecisions(@AuthenticationPrincipal BankPrincipal actor,@RequestParam(required=false)String decision,
+        @RequestParam(required=false)@DateTimeFormat(iso=DateTimeFormat.ISO.DATE)LocalDate from,@RequestParam(required=false)@DateTimeFormat(iso=DateTimeFormat.ISO.DATE)LocalDate to,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size){return decisions.list(actor.id(),false,decision,from,to,page,size);}
+    @GetMapping("/admin/decisions")public PageView<DecisionService.View> allDecisions(@AuthenticationPrincipal BankPrincipal actor,@RequestParam(required=false)String decision,
+        @RequestParam(required=false)@DateTimeFormat(iso=DateTimeFormat.ISO.DATE)LocalDate from,@RequestParam(required=false)@DateTimeFormat(iso=DateTimeFormat.ISO.DATE)LocalDate to,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size){return decisions.list(actor.id(),true,decision,from,to,page,size);}
+    @GetMapping("/dashboard")public Dashboard dashboard(@AuthenticationPrincipal BankPrincipal actor,@RequestParam(required=false)@DateTimeFormat(iso=DateTimeFormat.ISO.DATE)LocalDate from,@RequestParam(required=false)@DateTimeFormat(iso=DateTimeFormat.ISO.DATE)LocalDate to){return reports.dashboard(actor.id(),from,to);}
+    @GetMapping("/reports/product-performance")public PageView<Performance> performance(@AuthenticationPrincipal BankPrincipal actor,@RequestParam(required=false)@DateTimeFormat(iso=DateTimeFormat.ISO.DATE)LocalDate from,@RequestParam(required=false)@DateTimeFormat(iso=DateTimeFormat.ISO.DATE)LocalDate to,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size){return reports.performance(actor.id(),from,to,page,size);}
+}
+
+===== C:\Users\Abdul Salam\finnova-bank\backend\src\main\java\com\finnova\bank\audit\AuditQueryService.java =====
+package com.finnova.bank.audit;
+import java.time.*;
+import java.util.*;
+import com.finnova.bank.auth.domain.Role;
+import com.finnova.bank.banking.*;
+import com.finnova.bank.banking.BankingDtos.PageView;
+import com.finnova.bank.common.ApiException;
+import com.finnova.bank.reports.DateWindow;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+@Service
+public class AuditQueryService {
+    public record View(long id,String actorType,Long actorUserId,String actorRole,String eventType,String outcome,String resourceType,String resourceId,Map<String,Object> details,Instant occurredAt){}
+    private final AuditRepository records;private final BankingAccess access;private final Clock clock;
+    public AuditQueryService(AuditRepository records,BankingAccess access,Clock clock){this.records=records;this.access=access;this.clock=clock;}
+    @Transactional(readOnly=true)@PreAuthorize("hasAnyRole('LOAN_OFFICER','ADMIN') and #actor==authentication.principal.id()")
+    public PageView<View> search(long actor,Long actorId,String event,String outcome,String q,LocalDate from,LocalDate to,int page,int size){
+        Role role=access.actor(actor);if(role==Role.LOAN_OFFICER&&actorId!=null&&actorId!=actor)throw new ApiException(HttpStatus.FORBIDDEN,"Officers can search only their own audit actions.");
+        Long scoped=role==Role.LOAN_OFFICER?actor:actorId;String search=ListQuery.search(q);DateWindow range=DateWindow.of(from,to,clock);
+        if(event!=null&&!event.matches("[A-Z0-9_]{1,64}"))throw new ApiException(HttpStatus.BAD_REQUEST,"Invalid event filter.");
+        if(outcome!=null&&!Set.of("SUCCESS","FAILURE","DENIED").contains(outcome))throw new ApiException(HttpStatus.BAD_REQUEST,"Invalid outcome filter.");
+        var query=ListQuery.of(page,size,"occurredAt","DESC",Set.of("occurredAt"));
+        var result=records.findAll((r,c,b)->{List<Predicate> p=new ArrayList<>();p.add(b.greaterThanOrEqualTo(r.get("occurredAt"),range.start()));p.add(b.lessThan(r.get("occurredAt"),range.end()));
+            if(scoped!=null)p.add(b.equal(r.get("actorUserId"),scoped));if(event!=null)p.add(b.equal(r.get("eventType"),event));if(outcome!=null)p.add(b.equal(r.get("outcome"),outcome));
+            if(search!=null)p.add(b.or(b.like(b.lower(r.get("eventType")),ListQuery.like(search),'\\'),b.like(b.lower(r.get("resourceType")),ListQuery.like(search),'\\'),b.like(b.lower(r.get("resourceId")),ListQuery.like(search),'\\')));return b.and(p.toArray(Predicate[]::new));},query.pageable());
+        return new PageView<>(result.getContent().stream().map(a->new View(a.getId(),a.getActorType(),a.getActorUserId(),a.getActorRole(),a.getEventType(),a.getOutcome(),a.getResourceType(),a.getResourceId(),a.getDetails(),a.getOccurredAt())).toList(),page,size,result.getTotalElements(),result.getTotalPages(),"occurredAt","DESC");
+    }
+}
+
+===== C:\Users\Abdul Salam\finnova-bank\backend\src\main\java\com\finnova\bank\audit\AuditRecord.java =====
+package com.finnova.bank.audit;
+
+import java.time.Instant;
+import java.util.Map;
+import jakarta.persistence.*;
+import org.hibernate.annotations.Immutable;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+@Entity @Immutable @Table(name = "audit_logs")
+public class AuditRecord {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
+    @Column(name = "actor_type", nullable = false, length = 12, updatable = false) private String actorType;
+    @Column(name = "actor_user_id", updatable = false) private Long actorUserId;
+    @Column(name = "actor_role", length = 20, updatable = false) private String actorRole;
+    @Column(name = "event_type", nullable = false, length = 64, updatable = false) private String eventType;
+    @Column(nullable = false, length = 12, updatable = false) private String outcome;
+    @Column(name = "resource_type", nullable = false, length = 64, updatable = false) private String resourceType;
+    @Column(name = "resource_id", length = 64, updatable = false) private String resourceId;
+    @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "json", updatable = false) private Map<String, Object> details;
+    @Column(name = "occurred_at", nullable = false, updatable = false) private Instant occurredAt;
+    @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
+    @Column(name = "updated_at", nullable = false, updatable = false) private Instant updatedAt;
+    protected AuditRecord() { }
+    public Long getId(){return id;} public String getActorType(){return actorType;}
+    public Long getActorUserId(){return actorUserId;} public String getActorRole(){return actorRole;}
+    public String getEventType(){return eventType;} public String getOutcome(){return outcome;}
+    public String getResourceType(){return resourceType;} public String getResourceId(){return resourceId;}
+    public Map<String,Object> getDetails(){return details;} public Instant getOccurredAt(){return occurredAt;}
+    public AuditRecord(AuditActor actor, String event, String outcome, String resourceType,
+                       String resourceId, Map<String, Object> details, Instant now) {
+        actorType = actor.type(); actorUserId = actor.id(); actorRole = actor.role();
+        eventType = event; this.outcome = outcome; this.resourceType = resourceType;
+        this.resourceId = resourceId; this.details = Map.copyOf(details);
+        occurredAt = now; createdAt = now; updatedAt = now;
+    }
+}
+
+
+===== C:\Users\Abdul Salam\finnova-bank\backend\src\main\java\com\finnova\bank\audit\AuditRepository.java =====
+package com.finnova.bank.audit;
+import org.springframework.data.repository.Repository;
+public interface AuditRepository extends Repository<AuditRecord, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<AuditRecord> {
+    AuditRecord save(AuditRecord record);
+}
+
+
+===== C:\Users\Abdul Salam\finnova-bank\backend\src\main\java\com\finnova\bank\common\GlobalExceptionHandler.java =====
+package com.finnova.bank.common;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.ServletWebRequest;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+    private static final Logger LOG = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private final Clock clock;
+    public GlobalExceptionHandler(Clock clock) { this.clock = clock; }
+
+    @ExceptionHandler(ApiException.class)
+    ResponseEntity<Object> business(ApiException ex, WebRequest request) {
+        return error(ex.status(), ex.getMessage(), List.of(), new HttpHeaders(), request);
+    }
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<Object> forbidden(AccessDeniedException ex, WebRequest request) {
+        return error(HttpStatus.FORBIDDEN, "You do not have permission for this action.", List.of(), new HttpHeaders(), request);
+    }
+    @ExceptionHandler(AuthenticationException.class)
+    ResponseEntity<Object> unauthenticated(AuthenticationException ex, WebRequest request) {
+        return error(HttpStatus.UNAUTHORIZED, "Authentication is required or the session is no longer valid.", List.of(), new HttpHeaders(), request);
+    }
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ResponseEntity<Object> integrity(DataIntegrityViolationException ex, WebRequest request) {
+        return error(HttpStatus.CONFLICT, "The request conflicts with an existing record or an integrity rule.", List.of(), new HttpHeaders(), request);
+    }
+    @ExceptionHandler({CannotAcquireLockException.class, OptimisticLockingFailureException.class})
+    ResponseEntity<Object> concurrentUpdate(Exception ex, WebRequest request) {
+        return error(HttpStatus.CONFLICT, "The record changed or is busy. Retry the action.", List.of(), new HttpHeaders(), request);
+    }
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
+            HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        List<ApiError.FieldError> fields = ex.getBindingResult().getFieldErrors().stream()
+                .map(field -> new ApiError.FieldError(field.getField(), field.getDefaultMessage()))
+                .sorted(Comparator.comparing(ApiError.FieldError::field)).toList();
+        return error(HttpStatus.BAD_REQUEST, "Request validation failed.", fields, headers, request);
+    }
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        String message = switch (status.value()) {
+            case 400 -> "Malformed request or unsupported request fields.";
+            case 404 -> "The requested resource was not found.";
+            case 405 -> "This HTTP method is not supported for this resource.";
+            case 415 -> "Use application/json for this request.";
+            default -> "The request could not be processed.";
+        };
+        return error(HttpStatus.valueOf(status.value()), message, List.of(), headers, request);
+    }
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<Object> unexpected(Exception ex, WebRequest request) {
+        // Never log request bodies, SQL, tokens, credentials, or exception messages.
+        LOG.error("Unhandled API failure type={}", ex.getClass().getSimpleName());
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred. Please try again later.",
+                List.of(), new HttpHeaders(), request);
+    }
+    private ResponseEntity<Object> error(HttpStatus status, String message, List<ApiError.FieldError> fields,
+            HttpHeaders headers, WebRequest request) {
+        String path = ((ServletWebRequest) request).getRequest().getRequestURI();
+        ApiError error = new ApiError(Instant.now(clock), status.value(), status.getReasonPhrase(), message, path, fields);
+        HttpHeaders safeHeaders = new HttpHeaders();
+        safeHeaders.putAll(headers);
+        safeHeaders.setCacheControl("no-store");
+        return new ResponseEntity<>(error, safeHeaders, status);
+    }
+}
+
+===== C:\Users\Abdul Salam\finnova-bank\frontend\src\pages\AdminCenterPage.jsx =====
+import { useCallback, useEffect, useState } from "react";
+import { http } from "../api/http.js";
+
+function errorMessage(error) {
+  return error?.response?.data?.message ||
+    error?.response?.data?.detail ||
+    error?.message ||
+    "The request failed.";
+}
+
+function money(value) {
+  const amount = Number(value ?? 0);
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(amount) ? amount : 0);
+}
+
+function Metric({ label, value }) {
+  return (
+    <div className="col-12 col-sm-6 col-xl-3">
+      <div className="card h-100 shadow-sm border-0">
+        <div className="card-body">
+          <p className="text-body-secondary mb-2">{label}</p>
+          <div className="h3 mb-0">{value ?? "—"}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function AdminCenterPage() {
+  const [dashboard, setDashboard] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [audit, setAudit] = useState([]);
+  const [performance, setPerformance] = useState([]);
+  const [query, setQuery] = useState("");
+  const [enabledFilter, setEnabledFilter] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [dashResult, userResult, auditResult, performanceResult] =
+        await Promise.all([
+          http.get("/dashboard"),
+          http.get("/admin/users", {
+            params: {
+              page: 0,
+              size: 10,
+              sortBy: "createdAt",
+              sortDirection: "DESC",
+              ...(query.trim() ? { q: query.trim() } : {}),
+              ...(enabledFilter !== ""
+                ? { enabled: enabledFilter === "true" }
+                : {}),
+            },
+          }),
+          http.get("/audit-logs", { params: { page: 0, size: 10 } }),
+          http.get("/reports/product-performance", {
+            params: { page: 0, size: 10 },
+          }),
+        ]);
+
+      setDashboard(dashResult.data);
+      setUsers(userResult.data?.items ?? []);
+      setAudit(auditResult.data?.items ?? []);
+      setPerformance(performanceResult.data?.items ?? []);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [query, enabledFilter]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  async function changeActivation(user) {
+    const nextActive = !user.enabled;
+    const reason = window.prompt(
+      `Reason for ${nextActive ? "activating" : "deactivating"} ${user.email}:`
+    );
+    if (reason === null) return;
+    if (!reason.trim()) {
+      setError("A reason is required.");
+      return;
+    }
+
+    setBusyId(user.id);
+    setError("");
+    setNotice("");
+    try {
+      await http.put(`/admin/users/${user.id}/activation`, {
+        active: nextActive,
+        reason: reason.trim(),
+      });
+      setNotice(`User ${user.email} was ${nextActive ? "activated" : "deactivated"}.`);
+      await loadData();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <section className="vstack gap-4">
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+          <p className="eyebrow mb-1">FINNOVA BANK / ADMINISTRATION</p>
+          <h1 className="h2 mb-1">Admin Center</h1>
+          <p className="text-body-secondary mb-0">
+            User oversight, system activity and portfolio reporting.
+          </p>
+        </div>
+        <button className="btn btn-outline-primary" onClick={loadData} disabled={loading}>
+          {loading ? "Refreshing…" : "Refresh data"}
+        </button>
+      </div>
+
+      {error && <div className="alert alert-danger" role="alert">{error}</div>}
+      {notice && <div className="alert alert-success" role="status">{notice}</div>}
+
+      <section aria-labelledby="overview-heading">
+        <h2 id="overview-heading" className="h4 mb-3">Bank overview</h2>
+        {loading && !dashboard ? <p>Loading dashboard…</p> : (
+          <div className="row g-3">
+            <Metric label="Accounts" value={dashboard?.accounts?.accountCount} />
+            <Metric label="Active accounts" value={dashboard?.accounts?.activeAccounts} />
+            <Metric label="Active customers" value={dashboard?.accounts?.activeCustomers} />
+            <Metric label="Operations volume" value={money(dashboard?.accounts?.operationVolume)} />
+            <Metric label="Pending loan applications" value={dashboard?.loans?.pendingApplications} />
+            <Metric label="Approved loans" value={dashboard?.loans?.approved} />
+            <Metric label="Outstanding principal" value={money(dashboard?.loans?.outstandingPrincipal)} />
+            <Metric label="Overdue installments" value={dashboard?.loans?.overdueInstallments} />
+          </div>
+        )}
+        {dashboard?.dateFilterMeaning && (
+          <p className="small text-body-secondary mt-2">{dashboard.dateFilterMeaning}</p>
+        )}
+      </section>
+
+      <section aria-labelledby="users-heading">
+        <h2 id="users-heading" className="h4">User management</h2>
+        <div className="card border-0 shadow-sm">
+          <div className="card-body">
+            <form
+              className="row g-2 mb-3"
+              onSubmit={(event) => { event.preventDefault(); loadData(); }}
+            >
+              <div className="col-md-7">
+                <label htmlFor="admin-user-search" className="form-label">Search users</label>
+                <input
+                  id="admin-user-search"
+                  className="form-control"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search by name or email"
+                />
+              </div>
+              <div className="col-md-3">
+                <label htmlFor="admin-user-status" className="form-label">Account status</label>
+                <select
+                  id="admin-user-status"
+                  className="form-select"
+                  value={enabledFilter}
+                  onChange={(event) => setEnabledFilter(event.target.value)}
+                >
+                  <option value="">All users</option>
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+              <div className="col-md-2 d-flex align-items-end">
+                <button className="btn btn-primary w-100" type="submit">Search</button>
+              </div>
+            </form>
+
+            <div className="table-responsive">
+              <table className="table table-hover align-middle">
+                <thead>
+                  <tr>
+                    <th>User</th><th>Role</th><th>Status</th><th>Created</th><th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id}>
+                      <td>
+                        <div className="fw-semibold">{user.fullName}</div>
+                        <div className="small text-body-secondary">{user.email}</div>
+                        <div className="small text-body-secondary">ID: {user.id}</div>
+                      </td>
+                      <td>{user.role}</td>
+                      <td>
+                        <span className={`badge ${user.enabled ? "text-bg-success" : "text-bg-secondary"}`}>
+                          {user.enabled ? "Enabled" : "Disabled"}
+                        </span>
+                      </td>
+                      <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}</td>
+                      <td>
+                        <button
+                          className={`btn btn-sm ${user.enabled ? "btn-outline-danger" : "btn-outline-success"}`}
+                          disabled={busyId === user.id}
+                          onClick={() => changeActivation(user)}
+                        >
+                          {busyId === user.id ? "Saving…" : user.enabled ? "Deactivate" : "Activate"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!loading && users.length === 0 && (
+                    <tr><td colSpan="5" className="text-center text-body-secondary py-4">No users found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="performance-heading">
+        <h2 id="performance-heading" className="h4">Loan product performance</h2>
+        <div className="table-responsive card border-0 shadow-sm">
+          <table className="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Product</th><th>Applications</th><th>Requested</th>
+                <th>Disbursed</th><th>Repaid</th><th>Outstanding</th>
+              </tr>
+            </thead>
+            <tbody>
+              {performance.map((item) => (
+                <tr key={item.productId}>
+                  <td>{item.productName}</td>
+                  <td>{item.submittedApplications}</td>
+                  <td>{money(item.requestedPrincipal)}</td>
+                  <td>{money(item.disbursedPrincipal)}</td>
+                  <td>{money(item.repayments)}</td>
+                  <td>{money(item.currentOutstanding)}</td>
+                </tr>
+              ))}
+              {!loading && performance.length === 0 && (
+                <tr><td colSpan="6" className="text-center text-body-secondary py-3">No performance data available.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="audit-heading">
+        <h2 id="audit-heading" className="h4">Recent audit activity</h2>
+        <div className="table-responsive card border-0 shadow-sm">
+          <table className="table table-hover align-middle mb-0">
+            <thead>
+              <tr><th>Time</th><th>Actor</th><th>Event</th><th>Resource</th><th>Outcome</th></tr>
+            </thead>
+            <tbody>
+              {audit.map((entry) => (
+                <tr key={entry.id}>
+                  <td>{entry.occurredAt ? new Date(entry.occurredAt).toLocaleString() : "—"}</td>
+                  <td>{entry.actorRole ?? entry.actorType}{entry.actorUserId ? ` #${entry.actorUserId}` : ""}</td>
+                  <td>{entry.eventType}</td>
+                  <td>{entry.resourceType}{entry.resourceId ? ` / ${entry.resourceId}` : ""}</td>
+                  <td>{entry.outcome}</td>
+                </tr>
+              ))}
+              {!loading && audit.length === 0 && (
+                <tr><td colSpan="5" className="text-center text-body-secondary py-3">No audit entries available.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <p className="small text-body-secondary">
+        Simulation environment only. Dashboard stock figures represent current values;
+        date-filtered event metrics are not historical balance snapshots.
+      </p>
+    </section>
+  );
+}
+
+===== C:\Users\Abdul Salam\finnova-bank\frontend\package.json =====
+{
+  "name": "finnova-bank-frontend",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort"
+  },
+  "dependencies": {
+    "axios": "^1.20.0",
+    "bootstrap": "5.3.8",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "^6.30.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.4",
+    "vite": "^7.3.1"
+  }
+}

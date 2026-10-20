@@ -1,0 +1,153 @@
+package com.finnova.bank.banking;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.finnova.bank.security.*;
+import com.finnova.testsupport.BankingFixtures;
+import com.finnova.testsupport.BankingFixtures.Fixture;
+import jakarta.persistence.EntityManager;
+import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.*;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.AfterTransaction;
+import org.springframework.test.web.servlet.*;
+import org.springframework.test.web.servlet.request.*;
+import org.springframework.transaction.annotation.Transactional;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+@SpringBootTest @AutoConfigureMockMvc(print=MockMvcPrint.NONE) @ActiveProfiles("dbtest") @Transactional
+@Import(BankingFixtures.class)
+class BankingApiTest {
+    @Autowired MockMvc mvc;@Autowired ObjectMapper mapper;@Autowired JdbcTemplate jdbc;
+    @Autowired EntityManager entityManager;@Autowired JwtTokenService tokens;@Autowired BankingFixtures.Factory fixtures;
+    @Autowired AccountRepository accounts;
+    Fixture owner,other;
+    @BeforeEach void setUp(){owner=fixtures.create("1000.00","0.00");other=fixtures.create("20.00","0.00");}
+    @AfterTransaction void retireAfterRollback(){fixtures.retire(owner);fixtures.retire(other);}
+    @Test void accountCrudUsesZeroBalanceAndSoftCloseWithAudit()throws Exception{
+        JsonNode opened=json(mvc.perform(post("/api/accounts").cookie(access(owner)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nickname\":\"Synthetic new\",\"accountType\":\"SAVINGS\"}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.balance").value("0.00")).andReturn());
+        long id=opened.get("id").asLong();
+        mvc.perform(patch("/api/accounts/"+id).cookie(access(owner)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nickname\":\"Synthetic renamed\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.nickname").value("Synthetic renamed"));
+        mvc.perform(post("/api/accounts/"+id+"/close").cookie(access(owner)).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CLOSED"));
+        mvc.perform(post("/api/accounts/"+id+"/close").cookie(access(owner)).with(csrf())).andExpect(status().isOk());
+        assertEquals(1L,jdbc.queryForObject("SELECT COUNT(*) FROM accounts WHERE id=?",Long.class,id));
+        assertEquals(1L,jdbc.queryForObject("SELECT COUNT(*) FROM audit_logs WHERE event_type='ACCOUNT_CLOSED' AND resource_id=?",Long.class,Long.toString(id)));
+    }
+    @Test void enforcesOwnershipAndCannotOverrideItWithAFilter()throws Exception{
+        mvc.perform(get("/api/accounts/"+other.source()).cookie(access(owner))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/transactions").param("accountId",Long.toString(other.source())).cookie(access(owner))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/accounts").param("customerId",Long.toString(other.customer())).cookie(access(owner))).andExpect(status().isForbidden());
+        mvc.perform(patch("/api/accounts/"+other.source()).cookie(access(owner)).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"No ownership\"}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(post("/api/accounts/"+other.target()+"/close").cookie(access(owner)).with(csrf())).andExpect(status().isNotFound());
+    }
+    @Test void rejectsBalanceMassAssignmentAndInvalidPagination()throws Exception{
+        mvc.perform(post("/api/accounts").cookie(access(owner)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nickname\":\"Invalid\",\"accountType\":\"SAVINGS\",\"balance\":999.00}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/accounts").param("size","101").cookie(access(owner))).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/transactions").param("sortBy","passwordHash").cookie(access(owner))).andExpect(status().isBadRequest());
+    }
+    @Test void adminCanReadButCannotMoveMoneyAndOfficerCannotReadAccounts()throws Exception{
+        entityManager.flush();entityManager.clear();
+        jdbc.update("UPDATE users SET role='ADMIN',approval_limit=500000.00 WHERE id=?",owner.user());
+        mvc.perform(get("/api/accounts/"+other.source()).cookie(access(owner))).andExpect(status().isOk());
+        mvc.perform(get("/api/transactions").param("customerId",Long.toString(other.customer())).cookie(access(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+        transfer(owner,"admin-"+UUID.randomUUID(),"1.00",owner.target()).andExpect(status().isForbidden());
+        entityManager.clear();jdbc.update("UPDATE users SET role='LOAN_OFFICER' WHERE id=?",owner.user());
+        mvc.perform(get("/api/accounts").cookie(access(owner))).andExpect(status().isForbidden());
+        transfer(owner,"officer-"+UUID.randomUUID(),"1.00",owner.target()).andExpect(status().isForbidden());
+    }
+    @Test void successfulTransferReplaysTheOriginalResponseAndMovesMoneyOnce()throws Exception{
+        String key=UUID.randomUUID().toString();
+        JsonNode first=json(transfer(owner,key,"25.00",owner.target()).andExpect(status().isCreated()).andExpect(header().string("Idempotency-Replayed","false")).andReturn());
+        JsonNode second=json(transfer(owner,key,"25.00",owner.target()).andExpect(status().isCreated()).andExpect(header().string("Idempotency-Replayed","true")).andReturn());
+        assertEquals(first,second);assertEquals("25.00",first.get("amount").asText());
+        entityManager.flush();
+        assertMoney("975.00",balance(owner.source()));assertMoney("25.00",balance(owner.target()));
+        assertEquals(2L,jdbc.queryForObject("SELECT COUNT(*) FROM transactions WHERE reference=?",Long.class,first.get("reference").asText()));
+        assertEquals(1L,jdbc.queryForObject("SELECT COUNT(*) FROM audit_logs WHERE event_type='TRANSFER' AND resource_id=?",Long.class,first.get("reference").asText()));
+    }
+    @Test void keyPayloadMismatchIs409AndDoesNotOverwriteTheOriginal()throws Exception{
+        String key=UUID.randomUUID().toString();
+        JsonNode first=json(transfer(owner,key,"10.00",owner.target()).andExpect(status().isCreated()).andReturn());
+        transfer(owner,key,"11.00",owner.target()).andExpect(status().isConflict());
+        JsonNode repeat=json(transfer(owner,key,"10.00",owner.target()).andExpect(status().isCreated()).andReturn());
+        assertEquals(first,repeat);
+    }
+    @Test void insufficientFundsAreAStoredBusinessRejectionWithoutLedgerChanges()throws Exception{
+        String key=UUID.randomUUID().toString();
+        JsonNode first=json(transfer(owner,key,"1000.01",owner.target()).andExpect(status().isUnprocessableEntity()).andReturn());
+        JsonNode second=json(transfer(owner,key,"1000.01",owner.target()).andExpect(status().isUnprocessableEntity()).andExpect(header().string("Idempotency-Replayed","true")).andReturn());
+        assertEquals(first,second);entityManager.flush();assertMoney("1000.00",balance(owner.source()));
+        assertEquals(0L,jdbc.queryForObject("SELECT COUNT(*) FROM transactions WHERE account_id IN (?,?) AND transaction_type LIKE 'TRANSFER_%'",Long.class,owner.source(),owner.target()));
+    }
+    @Test void transfersRejectForeignAndInactiveAccountsAndRequireAHeaderAndCsrf()throws Exception{
+        transfer(owner,UUID.randomUUID().toString(),"1.00",other.target()).andExpect(status().isNotFound());
+        jdbc.update("UPDATE accounts SET status='FROZEN' WHERE id=?",owner.target());entityManager.clear();
+        transfer(owner,UUID.randomUUID().toString(),"1.00",owner.target()).andExpect(status().isConflict());
+        mvc.perform(post("/api/transfers").cookie(access(owner)).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body(owner,"1.00",owner.target())))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/transfers").cookie(access(owner)).header("Idempotency-Key",UUID.randomUUID().toString()).contentType(MediaType.APPLICATION_JSON).content(body(owner,"1.00",owner.target())))
+                .andExpect(status().isForbidden());
+    }
+    @Test void nonzeroAndApplicationLinkedAccountsCannotClose()throws Exception{
+        mvc.perform(post("/api/accounts/"+owner.source()+"/close").cookie(access(owner)).with(csrf())).andExpect(status().isConflict());
+        jdbc.update("""
+            INSERT INTO loan_applications(customer_id,loan_product_id,disbursement_account_id,product_name_snapshot,
+             principal,annual_rate,tenure_months,declared_monthly_income,purpose)
+            VALUES(?,1,?,'Demo Personal Loan',10000.00,12.00,12,35000.00,'Test close blocker')
+            """,owner.customer(),owner.target());
+        mvc.perform(post("/api/accounts/"+owner.target()+"/close").cookie(access(owner)).with(csrf())).andExpect(status().isConflict());
+    }
+    @Test void historySearchFilterSortingPaginationAndIndiaDateBoundariesWork()throws Exception{
+        JsonNode result=json(transfer(owner,UUID.randomUUID().toString(),"12.34",owner.target()).andExpect(status().isCreated()).andReturn());
+        String reference=result.get("reference").asText();
+        mvc.perform(get("/api/transactions").cookie(access(owner)).param("q",reference).param("size","1").param("sortBy","amount").param("sortDirection","ASC"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2)).andExpect(jsonPath("$.items.length()").value(1));
+        mvc.perform(get("/api/transactions").cookie(access(owner)).param("q",reference).param("direction","DEBIT").param("type","TRANSFER_DEBIT")
+                .param("minAmount","12.34").param("maxAmount","12.34")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+        // 18:30 UTC is precisely midnight of the following India calendar day.
+        var boundaryTime=java.time.Instant.parse("2026-01-01T18:30:00Z");
+        BankAccount boundary=accounts.saveAndFlush(new BankAccount(owner.customer(),"Boundary fixture",BankAccount.Type.SAVINGS,boundaryTime));
+        boundary.applyBalance(new BigDecimal("1.00"),boundaryTime);accounts.flush();
+        jdbc.update("INSERT INTO transactions(account_id,reference,direction,transaction_type,amount,balance_after,description,actor_user_id,created_at,updated_at) VALUES(?,?,'CREDIT','OPENING_CREDIT',1.00,1.00,'TEST India boundary',?,'2026-01-01 18:30:00','2026-01-01 18:30:00')",boundary.getId(),UUID.randomUUID().toString(),owner.user());
+        mvc.perform(get("/api/transactions").cookie(access(owner)).param("q","TEST India boundary").param("from","2026-01-02").param("to","2026-01-02"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(get("/api/transactions").cookie(access(owner)).param("q","TEST India boundary").param("from","2026-01-01").param("to","2026-01-01"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+    }
+    private ResultActions transfer(Fixture f,String key,String amount,long target)throws Exception{
+        return mvc.perform(post("/api/transfers").cookie(access(f)).with(csrf()).header("Idempotency-Key",key).contentType(MediaType.APPLICATION_JSON).content(body(f,amount,target)));
+    }
+    private String body(Fixture f,String amount,long target)throws Exception{return mapper.writeValueAsString(Map.of("sourceAccountId",f.source(),"targetAccountId",target,"amount",amount,"note","Synthetic test"));}
+    private Cookie access(Fixture f){return new Cookie(AuthCookies.ACCESS,tokens.issue(f.user(),0));}
+    private RequestPostProcessor csrf()throws Exception{
+        MvcResult result=mvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+        String header=result.getResponse().getHeaders("Set-Cookie").stream().filter(value->value.startsWith("FN_CSRF=")).findFirst().orElseThrow();
+        String token=json(result).get("token").asText();
+        return request->{
+            List<Cookie> values=new ArrayList<>();if(request.getCookies()!=null)values.addAll(Arrays.asList(request.getCookies()));
+            values.removeIf(value->value.getName().equals("FN_CSRF"));values.add(new Cookie("FN_CSRF",header.substring(8,header.indexOf(';'))));
+            request.setCookies(values.toArray(Cookie[]::new));request.addHeader("X-CSRF-TOKEN",token);return request;
+        };
+    }
+    private JsonNode json(MvcResult result)throws Exception{return mapper.readTree(result.getResponse().getContentAsString());}
+    private BigDecimal balance(long id){return jdbc.queryForObject("SELECT balance FROM accounts WHERE id=?",BigDecimal.class,id);}
+    private void assertMoney(String expected,BigDecimal actual){assertEquals(0,new BigDecimal(expected).compareTo(actual));}
+}

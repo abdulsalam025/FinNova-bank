@@ -1,0 +1,29 @@
+package com.finnova.bank.banking;
+import java.util.Collection;
+import java.util.Optional;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+public interface AccountRepository extends JpaRepository<BankAccount,Long>, JpaSpecificationExecutor<BankAccount> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select a from BankAccount a where a.id=:id")
+    Optional<BankAccount> lockById(@Param("id") long id);
+    @Query("select count(a) from BankAccount a where a.customerId=:customer and a.id in :ids")
+    long countOwned(@Param("customer") long customer,@Param("ids") Collection<Long> ids);
+
+    @Query(value = "SELECT COUNT(*) FROM accounts a JOIN customers c ON c.id=a.customer_id JOIN users u ON u.id=c.user_id WHERE a.id=:id AND a.status='ACTIVE' AND a.currency='INR' AND u.role='CUSTOMER' AND u.enabled=1", nativeQuery=true)
+    long countEligibleCustomerRecipient(@Param("id") long id);
+
+    interface RecipientProjection {
+        long getAccountId();
+        String getRecipientName();
+        String getAccountNumber();
+        String getCurrency();
+    }
+
+    @Query(value = "SELECT a.id AS accountId, u.full_name AS recipientName, a.account_number AS accountNumber, a.currency AS currency FROM accounts a JOIN customers c ON c.id=a.customer_id JOIN users u ON u.id=c.user_id WHERE a.account_number=:number AND a.status='ACTIVE' AND a.currency='INR' AND u.role='CUSTOMER' AND u.enabled=1", nativeQuery=true)
+    Optional<RecipientProjection> findEligibleRecipientByAccountNumber(@Param("number") String number);
+    @Query(value="SELECT COUNT(*) FROM loan_applications WHERE disbursement_account_id=:id AND status NOT IN ('REJECTED','CLOSED')",nativeQuery=true)
+    long activeApplications(@Param("id") long id);
+    @Query(value="SELECT COUNT(*) FROM loans WHERE disbursement_account_id=:id AND status<>'CLOSED'",nativeQuery=true)
+    long activeLoans(@Param("id") long id);
+}

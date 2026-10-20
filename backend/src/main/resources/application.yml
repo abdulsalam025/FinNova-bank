@@ -1,0 +1,66 @@
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${SERVER_PORT:8080}
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-binding-errors: never
+    include-exception: false
+
+spring:
+  application:
+    name: finnova-bank
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:finnova_demo}?sslMode=REQUIRED&connectionTimeZone=%2B00:00&forceConnectionTimeZoneToSession=true&characterEncoding=UTF-8&allowMultiQueries=false
+    username: ${DB_APP_USERNAME}
+    password: ${DB_APP_PASSWORD}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+  flyway:
+    enabled: true
+    url: ${spring.datasource.url}
+    user: ${DB_MIGRATION_USERNAME}
+    password: ${DB_MIGRATION_PASSWORD}
+    locations: classpath:db/migration
+    clean-disabled: true
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    placeholder-replacement: false
+  jpa:
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  jackson:
+    time-zone: Asia/Kolkata
+    deserialization:
+      fail-on-unknown-properties: true
+
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: WARN
+  structured:
+    format:
+      console: logstash
+
+app:
+  security:
+    jwt-secret: ${AUTH_JWT_SECRET}
+    issuer: https://finnova.invalid
+    audience: finnova-browser
+    token-ttl-seconds: ${AUTH_TOKEN_TTL_SECONDS:900}
+    cookie-secure: ${AUTH_COOKIE_SECURE:false}
+    allowed-origins: ${AUTH_ALLOWED_ORIGINS:http://127.0.0.1:5173,http://localhost:5173}
+    rate-limit-enabled: true
+    login-requests-per-minute: 10
+    registration-requests-per-minute: 5
+  transfers:
+    requests-per-minute: 30
+  loans:
+    overdue-enabled: true
+    overdue-delay-ms: 60000
+

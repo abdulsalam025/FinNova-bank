@@ -1,0 +1,15 @@
+﻿import { http } from "./http.js";
+
+export async function createTransfer(details, idempotencyKey) {
+  const { data } = await http.post("/transfers", details, {
+    headers: { "Idempotency-Key": idempotencyKey },
+  });
+  return data;
+}
+
+export async function lookupTransferRecipient(accountNumber) {
+  const { data } = await http.get("/transfer-recipients", {
+    params: { accountNumber: accountNumber.trim().toUpperCase() },
+  });
+  return data;
+}

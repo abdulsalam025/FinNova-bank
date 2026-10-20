@@ -1,0 +1,29 @@
+﻿FinNova backend test report (read from surefire XML on 18-10-2026 22:44)
+
+
+Class                     Tests Failures Errors Skipped Seconds RunAt                
+-----                     ----- -------- ------ ------- ------- -----                
+AdminConcurrencyTest          1        0      0       0  11.771 10/18/2026 7:38:33 PM
+AuthSecurityTest             19        0      0       0    18.3 10/18/2026 7:39:08 PM
+BankingApiTest               10        0      0       0   8.638 10/18/2026 7:39:17 PM
+CsrfContinuityTest            2        0      0       0    4.17 10/18/2026 7:39:21 PM
+DatabaseMigrationTest         7        0      0       0   1.232 10/18/2026 7:39:28 PM
+DateWindowTest                3        0      0       0   0.004 10/18/2026 7:39:41 PM
+EmiEngineTest                 4        0      0       0    0.01 10/18/2026 7:39:28 PM
+HealthControllerTest          1        0      0       0   0.027 10/18/2026 7:39:28 PM
+LoanLifecycleTest             2        0      0       0   0.006 10/18/2026 7:39:28 PM
+LoanWorkflowTest              7        0      0       0   7.886 10/18/2026 7:39:36 PM
+ManagementTest               11        0      0       0  17.577 10/18/2026 7:38:50 PM
+PasswordPolicyTest            4        0      0       0   0.006 10/18/2026 7:39:08 PM
+RateLimiterTest               3        0      0       0   0.006 10/18/2026 7:39:41 PM
+RateLimitHttpTest             1        0      0       0     2.1 10/18/2026 7:39:43 PM
+RepaymentConcurrencyTest      2        0      0       0   2.939 10/18/2026 7:39:39 PM
+RepaymentRollbackTest         1        0      0       0   2.145 10/18/2026 7:39:41 PM
+TransferConcurrencyTest       6        0      0       0   2.036 10/18/2026 7:39:23 PM
+TransferPolicyTest            5        0      0       0   0.009 10/18/2026 7:39:23 PM
+TransferRateLimitHttpTest     1        0      0       0   1.412 10/18/2026 7:39:25 PM
+TransferRollbackTest          1        0      0       0   1.824 10/18/2026 7:39:26 PM
+
+
+
+Total tests: 91  Failures: 0  Errors: 0  Skipped: 0

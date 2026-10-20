@@ -1,0 +1,25 @@
+# Secrets and machine-local configuration
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.local
+
+# Dependency caches and build outputs
+**/node_modules/
+**/target/
+**/dist/
+
+# Local execution logs (review and redact before sharing)
+*.log
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.iml
+Thumbs.db
+.DS_Store
+
+# Local source backups; never submission artifacts
+.finnova-backups/
+
