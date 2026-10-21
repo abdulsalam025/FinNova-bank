@@ -17,7 +17,7 @@ public class DecisionRepository {
             CONVERT(loan_application_id USING utf8mb4) COLLATE utf8mb4_0900_ai_ci AS resource_id,
             to_status COLLATE utf8mb4_0900_ai_ci AS decision,notes COLLATE utf8mb4_0900_ai_ci AS reason,
             actor_user_id AS actor_id,actor_role COLLATE utf8mb4_0900_ai_ci AS actor_role,occurred_at FROM loan_application_history
-            WHERE to_status IN ('APPROVED','REJECTED') AND actor_user_id IS NOT NULL
+            WHERE to_status IN ('UNDER_REVIEW','ADDITIONAL_INFO_REQUIRED','APPROVED','REJECTED','DISBURSED') AND actor_user_id IS NOT NULL
             UNION ALL SELECT CONVERT(CONCAT('KYC-',id) USING utf8mb4) COLLATE utf8mb4_0900_ai_ci,
             resource_type COLLATE utf8mb4_0900_ai_ci,resource_id COLLATE utf8mb4_0900_ai_ci,
             JSON_UNQUOTE(JSON_EXTRACT(details,'$.decision')) COLLATE utf8mb4_0900_ai_ci,

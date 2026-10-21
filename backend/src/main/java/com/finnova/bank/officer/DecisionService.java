@@ -18,7 +18,7 @@ public class DecisionService {
     @Transactional(readOnly=true)@PreAuthorize("hasAnyRole('LOAN_OFFICER','ADMIN') and #actor==authentication.principal.id()")
     public PageView<View> list(long actor,boolean all,String decision,LocalDate from,LocalDate to,int page,int size){
         Role role=access.actor(actor);if(all&&role!=Role.ADMIN)throw new ApiException(HttpStatus.FORBIDDEN,"All decision history is restricted to Admin.");
-        if(decision!=null&&!Set.of("APPROVED","REJECTED","VERIFIED").contains(decision))throw new ApiException(HttpStatus.BAD_REQUEST,"Unsupported decision filter.");
+        if(decision!=null&&!Set.of("APPROVED","REJECTED","VERIFIED","UNDER_REVIEW","ADDITIONAL_INFO_REQUIRED","DISBURSED").contains(decision))throw new ApiException(HttpStatus.BAD_REQUEST,"Unsupported decision filter.");
         ListQuery.of(page,size,"occurredAt","DESC",Set.of("occurredAt"));
         return decisions.find(all?null:actor,decision,DateWindow.of(from,to,clock),page,size);
     }

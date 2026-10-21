@@ -85,7 +85,7 @@ public class ApplicationService {
         return LoanDtos.view(a);
     }
     public void approval(BankUser actor,LoanApplication a){
-        if(actor.getApprovalLimit()==null||a.principal.compareTo(actor.getApprovalLimit())>0)throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,"Application exceeds your policy approval limit.");
+        if(actor.getRole()==Role.LOAN_OFFICER&&(actor.getApprovalLimit()==null||a.principal.compareTo(actor.getApprovalLimit())>0))throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,"Application exceeds your policy approval limit.");
         if(!"VERIFIED".equals(applications.kyc(a.customerId).orElse("PENDING")))throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,"Verified synthetic KYC is required before approval/disbursement.");
     }
     @Transactional(readOnly=true)@PreAuthorize("isAuthenticated() and #user==authentication.principal.id()")

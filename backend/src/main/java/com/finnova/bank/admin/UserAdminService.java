@@ -1,6 +1,7 @@
 package com.finnova.bank.admin;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import com.finnova.bank.admin.AdminDtos.*;
@@ -12,15 +13,18 @@ import com.finnova.bank.banking.BankingDtos.PageView;
 import com.finnova.bank.common.ApiException;
 import com.finnova.bank.loans.LoanPolicy;
 import jakarta.persistence.criteria.Predicate;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 @Service
 public class UserAdminService {
     private final UserRepository users;private final CustomerRepository customers;private final SettingRepository settings;
     private final BankingAccess access;private final AuditService audit;private final Clock clock;private final LoanPolicy notes;
-    public UserAdminService(UserRepository users,CustomerRepository customers,SettingRepository settings,BankingAccess access,AuditService audit,Clock clock,LoanPolicy notes){this.users=users;this.customers=customers;this.settings=settings;this.access=access;this.audit=audit;this.clock=clock;this.notes=notes;}
+    private final PasswordEncoder encoder;
+    public UserAdminService(UserRepository users,CustomerRepository customers,SettingRepository settings,BankingAccess access,AuditService audit,Clock clock,LoanPolicy notes,PasswordEncoder encoder){this.users=users;this.customers=customers;this.settings=settings;this.access=access;this.audit=audit;this.clock=clock;this.notes=notes;this.encoder=encoder;}
     @Transactional(readOnly=true)@PreAuthorize("hasRole('ADMIN') and #actor==authentication.principal.id()")
     public PageView<UserView> list(long actor,String q,Role role,Boolean enabled,int page,int size,String sortBy,String direction){
         access.actor(actor);String search=ListQuery.search(q);var query=ListQuery.of(page,size,sortBy,direction,Set.of("id","createdAt","fullName","email","role","enabled"));
@@ -30,6 +34,21 @@ public class UserAdminService {
     }
     @Transactional(readOnly=true)@PreAuthorize("hasRole('ADMIN') and #actor==authentication.principal.id()")
     public UserView detail(long actor,long id){access.actor(actor);return view(users.findById(id).orElseThrow(this::missing),customer(id));}
+    @Transactional(isolation=Isolation.READ_COMMITTED)@PreAuthorize("hasRole('ADMIN') and #actor==authentication.principal.id()")
+    public UserView createOfficer(long actor,CreateOfficer request){
+        if(access.actor(actor)!=Role.ADMIN)throw new ApiException(HttpStatus.FORBIDDEN,"Administrator role required.");
+        BigDecimal limit=request.approvalLimit();
+        if(limit.signum()<=0||limit.scale()>2||limit.compareTo(TransferPolicy.MAX_MONEY)>0)throw invalid("Officer approval limit must be a positive supported amount.");
+        String email=request.email().trim().toLowerCase(Locale.ROOT);
+        String name=request.fullName().trim();
+        Instant now=clock.instant();
+        BankUser created=BankUser.officer(email,name,encoder.encode(request.password()),now);
+        created.assignRoleByAdmin(Role.LOAN_OFFICER,limit.setScale(2),now);
+        users.save(created);
+        try{users.flush();}catch(DataIntegrityViolationException duplicate){throw conflict("An account with this email already exists.");}
+        audit.record(AuditActor.user(actor,Role.ADMIN),"USER_CREATED","SUCCESS","USER",Long.toString(created.getId()),Map.of("email",email,"role",Role.LOAN_OFFICER.name(),"approvalLimit",limit.toPlainString(),"createdBy",Long.toString(actor)));
+        return view(created,null);
+    }
     @Transactional(isolation=Isolation.READ_COMMITTED)@PreAuthorize("hasRole('ADMIN') and #actor==authentication.principal.id()")
     public UserView activate(long actor,long id,Activation request){
         String reason=notes.notes(request.reason());BankUser target=lock(actor,id);

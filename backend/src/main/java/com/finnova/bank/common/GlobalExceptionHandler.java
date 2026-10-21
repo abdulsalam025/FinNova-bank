@@ -72,10 +72,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(Exception.class)
     ResponseEntity<Object> unexpected(Exception ex, WebRequest request) {
         // Never log request bodies, SQL, tokens, credentials, or exception messages.
-        LOG.error("Unhandled API failure type={}", ex.getClass().getSimpleName());
+        LOG.error("Unhandled API failure type={} chain={}", ex.getClass().getSimpleName(), chain(ex));
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred. Please try again later.",
                 List.of(), new HttpHeaders(), request);
     }
+    // Diagnostics only: class names plus SQLState and vendor code. Never messages, SQL or values.
+    private static String chain(Throwable ex) {
+        StringBuilder sb = new StringBuilder();
+        Throwable t = ex;
+        for (int depth = 0; t != null && depth < 8; depth++) {
+            if (depth > 0) sb.append(" <- ");
+            sb.append(t.getClass().getSimpleName());
+            if (t instanceof java.sql.SQLException sql) {
+                sb.append("[sqlState=").append(sql.getSQLState()).append(",code=").append(sql.getErrorCode()).append(']');
+            }
+            t = t.getCause() == t ? null : t.getCause();
+        }
+        return sb.toString();
+    }
+
     private ResponseEntity<Object> error(HttpStatus status, String message, List<ApiError.FieldError> fields,
             HttpHeaders headers, WebRequest request) {
         String path = ((ServletWebRequest) request).getRequest().getRequestURI();

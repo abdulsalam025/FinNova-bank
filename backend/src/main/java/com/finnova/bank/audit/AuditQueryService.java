@@ -19,7 +19,7 @@ public class AuditQueryService {
     @Transactional(readOnly=true)@PreAuthorize("hasAnyRole('LOAN_OFFICER','ADMIN') and #actor==authentication.principal.id()")
     public PageView<View> search(long actor,Long actorId,String event,String outcome,String q,LocalDate from,LocalDate to,int page,int size){
         Role role=access.actor(actor);if(role==Role.LOAN_OFFICER&&actorId!=null&&actorId!=actor)throw new ApiException(HttpStatus.FORBIDDEN,"Officers can search only their own audit actions.");
-        Long scoped=role==Role.LOAN_OFFICER?actor:actorId;String search=ListQuery.search(q);DateWindow range=DateWindow.of(from,to,clock);
+        Long scoped=role==Role.LOAN_OFFICER?Long.valueOf(actor):actorId;String search=ListQuery.search(q);DateWindow range=DateWindow.of(from,to,clock);
         if(event!=null&&!event.matches("[A-Z0-9_]{1,64}"))throw new ApiException(HttpStatus.BAD_REQUEST,"Invalid event filter.");
         if(outcome!=null&&!Set.of("SUCCESS","FAILURE","DENIED").contains(outcome))throw new ApiException(HttpStatus.BAD_REQUEST,"Invalid outcome filter.");
         var query=ListQuery.of(page,size,"occurredAt","DESC",Set.of("occurredAt"));

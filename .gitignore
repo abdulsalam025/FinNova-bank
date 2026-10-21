@@ -1,25 +1,38 @@
-# Secrets and machine-local configuration
 .env
 .env.*
 !.env.example
-!**/.env.example
-*.local
-
-# Dependency caches and build outputs
 **/node_modules/
-**/target/
 **/dist/
-
-# Local execution logs (review and redact before sharing)
-*.log
-
-# IDE and operating-system files
+**/target/
 .idea/
 .vscode/
-*.iml
-Thumbs.db
-.DS_Store
+*.log
 
-# Local source backups; never submission artifacts
+# Local inspection files and backups
+backups/
+*-inspect*.txt
+money-files.txt
+finnova-frontend.zip
+admin-inspect*.txt
+repayment-inspect.txt
+sidebar-inspect.txt
+
+# Local backups
 .finnova-backups/
-
+backups/
+*.bak
+*.bak-*
+*.backup-*
+*.bak-*.*
+*.backup-*.*
+*.bak-202*
+*.backup-202*
+# added by Fix-TestsAndPush
+node_modules/
+dist/
+target/
+Install-*.ps1
+Fix-TestsAndPush.ps1
+# added by Fix-TestsAndPush
+docs/ui-source-*.txt
+docs/audit-fix-files.txt

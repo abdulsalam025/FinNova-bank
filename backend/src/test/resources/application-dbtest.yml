@@ -4,13 +4,11 @@ spring:
     url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/finnova_test?sslMode=REQUIRED&connectionTimeZone=%2B00:00&forceConnectionTimeZoneToSession=true&characterEncoding=UTF-8&allowMultiQueries=false
   flyway:
     url: ${spring.datasource.url}
-    user: ${spring.datasource.username}
-    password: ${spring.datasource.password}
 
 # TEST ONLY: a deliberately public signing key. Production has no key default.
 app:
   security:
-    jwt-secret: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+    jwt-secret: ${FINNOVA_DBTEST_APP_SECURITY_JWT_SECRET}
     cookie-secure: false
     rate-limit-enabled: false
   loans:

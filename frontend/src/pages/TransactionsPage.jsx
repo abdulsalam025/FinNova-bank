@@ -1,4 +1,5 @@
-﻿import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ArrowDownLeft, ArrowUpRight, ReceiptText, RefreshCw } from "lucide-react";
 import { listTransactions } from "../api/transactions.js";
 
 function errorText(error) {
@@ -13,9 +14,7 @@ function errorText(error) {
 
 function money(value, currency = "INR") {
   return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 2,
+    style: "currency", currency, maximumFractionDigits: 2,
   }).format(Number(value ?? 0));
 }
 
@@ -26,12 +25,7 @@ function dateText(value) {
 }
 
 export default function TransactionsPage() {
-  const [result, setResult] = useState({
-    items: [],
-    page: 0,
-    totalPages: 0,
-    totalElements: 0,
-  });
+  const [result, setResult] = useState({ items: [], page: 0, totalPages: 0, totalElements: 0 });
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,121 +48,110 @@ export default function TransactionsPage() {
     }
   }, [page]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   return (
-    <main className="container py-4 py-lg-5">
+    <section aria-labelledby="transactions-heading">
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-          <p className="text-primary fw-semibold mb-1">ACCOUNT ACTIVITY</p>
-          <h1 className="h2 fw-bold mb-1">Transaction History</h1>
-          <p className="text-secondary mb-0">Review recorded transfers and account activity.</p>
+          <p className="eyebrow mb-1">ACCOUNT ACTIVITY</p>
+          <h1 id="transactions-heading" className="h2 mb-1">Transaction History</h1>
+          <p className="text-body-secondary mb-0">Recorded transfers and account activity.</p>
         </div>
-        <button className="btn btn-outline-primary" onClick={load} disabled={loading}>
-          Refresh
+        <button type="button" className="btn btn-outline-primary d-inline-flex align-items-center gap-2" onClick={load} disabled={loading}>
+          <RefreshCw size={15} strokeWidth={2.2} aria-hidden="true" />
+          {loading ? "Refreshing…" : "Refresh"}
         </button>
       </div>
 
       {error && (
-        <div className="alert alert-danger" role="alert">
-          <div>{error}</div>
-          <button className="btn btn-sm btn-outline-danger mt-2" onClick={load}>
-            Try again
-          </button>
+        <div className="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2" role="alert">
+          <span>{error}</span>
+          <button className="btn btn-sm btn-outline-dark" onClick={load}>Try again</button>
         </div>
       )}
 
-      <section className="card border-0 shadow-sm">
-        <div className="card-body p-0">
-          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 p-3 border-bottom">
-            <h2 className="h6 fw-bold mb-0">All transactions</h2>
-            <span className="small text-secondary">
-              {result.totalElements} record{result.totalElements === 1 ? "" : "s"}
-            </span>
-          </div>
-
-          {loading ? (
-            <div className="p-4 text-secondary">Loading transaction history…</div>
-          ) : !error && result.items.length === 0 ? (
-            <div className="p-5 text-center">
-              <h3 className="h6 fw-bold">No transactions yet</h3>
-              <p className="text-secondary mb-0">Recorded activity will appear here.</p>
-            </div>
-          ) : result.items.length > 0 ? (
-            <>
-              <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0">
-                  <thead className="table-light">
-                    <tr>
-                      <th scope="col" className="ps-3">Date</th>
-                      <th scope="col">Reference / Description</th>
-                      <th scope="col">Account</th>
-                      <th scope="col">Type</th>
-                      <th scope="col" className="text-end">Amount</th>
-                      <th scope="col" className="text-end pe-3">Balance after</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.items.map((transaction) => {
-                      const outgoing = String(transaction.direction ?? "").toUpperCase() === "OUTGOING";
-                      return (
-                        <tr key={transaction.id}>
-                          <td className="ps-3 small text-secondary">
-                            {dateText(transaction.createdAt)}
-                          </td>
-                          <td>
-                            <div className="fw-semibold">{transaction.reference || `Transaction #${transaction.id}`}</div>
-                            <div className="small text-secondary">{transaction.description || "No description"}</div>
-                          </td>
-                          <td>
-                            <div>{transaction.accountNumber || `Account #${transaction.accountId}`}</div>
-                            <div className="small text-secondary">ID {transaction.accountId}</div>
-                          </td>
-                          <td>
-                            <span className="badge text-bg-light border">
-                              {transaction.transactionType || transaction.direction || "Transaction"}
-                            </span>
-                          </td>
-                          <td className={`text-end fw-semibold ${outgoing ? "text-danger" : "text-success"}`}>
-                            {outgoing ? "−" : "+"}{money(transaction.amount)}
-                          </td>
-                          <td className="text-end pe-3">
-                            {money(transaction.balanceAfter)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 p-3 border-top">
-                <span className="small text-secondary">
-                  Page {result.page + 1} of {Math.max(result.totalPages, 1)}
-                </span>
-                <div className="d-flex gap-2">
-                  <button
-                    className="btn btn-outline-secondary btn-sm"
-                    onClick={() => setPage((current) => Math.max(0, current - 1))}
-                    disabled={loading || page <= 0}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    className="btn btn-outline-primary btn-sm"
-                    onClick={() => setPage((current) => current + 1)}
-                    disabled={loading || page + 1 >= result.totalPages}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : null}
+      <section className="card border-0 shadow-sm" aria-labelledby="all-transactions-heading">
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 p-3 border-bottom">
+          <h2 id="all-transactions-heading" className="h6 fw-bold mb-0">All transactions</h2>
+          <span className="small text-body-secondary">{result.totalElements} record{result.totalElements === 1 ? "" : "s"}</span>
         </div>
+
+        {loading ? (
+          <div className="p-3">
+            <span className="fn-skeleton row-skeleton" aria-hidden="true" />
+            <span className="fn-skeleton row-skeleton" aria-hidden="true" />
+            <span className="fn-skeleton row-skeleton" aria-hidden="true" />
+            <span className="fn-skeleton row-skeleton" aria-hidden="true" />
+          </div>
+        ) : !error && result.items.length === 0 ? (
+          <div className="p-5 text-center">
+            <div className="dashboard-empty-icon" aria-hidden="true"><ReceiptText size={20} /></div>
+            <h3 className="h6 fw-bold mt-3">No transactions yet</h3>
+            <p className="text-body-secondary mb-0">Recorded activity will appear here after your first transfer.</p>
+          </div>
+        ) : result.items.length > 0 ? (
+          <>
+            <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th scope="col" className="ps-3">Date</th>
+                    <th scope="col">Reference / Description</th>
+                    <th scope="col">Account</th>
+                    <th scope="col">Type</th>
+                    <th scope="col" className="text-end">Amount</th>
+                    <th scope="col" className="text-end pe-3">Balance after</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.items.map((transaction) => {
+                    const direction = String(transaction.direction ?? "").toUpperCase();
+                const outgoing = direction === "OUTGOING" || direction === "DEBIT";
+                    return (
+                      <tr key={transaction.id}>
+                        <td className="ps-3 small text-body-secondary text-nowrap">{dateText(transaction.createdAt)}</td>
+                        <td>
+                          <div className="fw-semibold d-flex align-items-center gap-2">
+                            <span className={`txn-icon ${outgoing ? "out" : "in"}`} style={{ width: "1.9rem", height: "1.9rem" }} aria-hidden="true">
+                              {outgoing ? <ArrowUpRight size={13} /> : <ArrowDownLeft size={13} />}
+                            </span>
+                            <span>{transaction.reference || `Transaction #${transaction.id}`}</span>
+                          </div>
+                          <div className="small text-body-secondary">{transaction.description || "No description"}</div>
+                        </td>
+                        <td>
+                          <div className="small font-monospace">{transaction.accountNumber || `Account #${transaction.accountId}`}</div>
+                          <div className="small text-body-secondary">ID {transaction.accountId}</div>
+                        </td>
+                        <td>
+                          <span className="status-chip neutral">{transaction.transactionType || transaction.direction || "Transaction"}</span>
+                        </td>
+                        <td className={`text-end txn-amount ${outgoing ? "out" : "in"}`}>
+                          {outgoing ? "−" : "+"}{money(transaction.amount)}
+                        </td>
+                        <td className="text-end pe-3 fn-num">{money(transaction.balanceAfter)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 p-3 border-top">
+              <span className="small text-body-secondary">Page {result.page + 1} of {Math.max(result.totalPages, 1)}</span>
+              <div className="d-flex gap-2">
+                <button type="button" className="btn btn-outline-secondary btn-sm"
+                  onClick={() => setPage((current) => Math.max(0, current - 1))}
+                  disabled={loading || page <= 0}>Previous</button>
+                <button type="button" className="btn btn-outline-primary btn-sm"
+                  onClick={() => setPage((current) => current + 1)}
+                  disabled={loading || page + 1 >= result.totalPages}>Next</button>
+              </div>
+            </div>
+          </>
+        ) : null}
       </section>
-    </main>
+    </section>
   );
 }

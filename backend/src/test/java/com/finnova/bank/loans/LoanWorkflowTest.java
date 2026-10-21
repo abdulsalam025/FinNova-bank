@@ -32,19 +32,21 @@ class LoanWorkflowTest {
     @Autowired ApplicationService applications;@Autowired DisbursementService disbursement;@Autowired RepaymentService repayments;@Autowired LoanQueryService queries;
     @Autowired OverdueService overdue;@Autowired JdbcTemplate jdbc;@Autowired EntityManager em;@Autowired BankingFixtures.Factory fixtures;
     @Autowired MockMvc mvc;@Autowired ObjectMapper mapper;@Autowired JwtTokenService tokens;
-    BankingFixtures.Fixture borrower,officer;
+    BankingFixtures.Fixture borrower,officer,admin;
     @BeforeEach void setup(){
-        borrower=fixtures.create("2000.00","0.00");officer=fixtures.create("0.00","0.00");
+        borrower=fixtures.create("2000.00","0.00");officer=fixtures.create("0.00","0.00");admin=fixtures.create("0.00","0.00");
         jdbc.update("UPDATE users SET role='LOAN_OFFICER',approval_limit=500000.00 WHERE id=?",officer.user());
+        jdbc.update("UPDATE users SET role='ADMIN',approval_limit=5000000.00 WHERE id=?",admin.user());
         jdbc.update("INSERT INTO kyc_records(customer_id,document_reference,status,reviewed_by,reviewed_at,review_notes) VALUES(?,?,'VERIFIED',?,UTC_TIMESTAMP(6),'Synthetic review')",borrower.customer(),"DEMO-"+UUID.randomUUID(),officer.user());em.clear();
     }
-    @AfterTransaction void retire(){fixtures.retire(borrower);fixtures.retire(officer);}
+    @AfterTransaction void retire(){fixtures.retire(borrower);fixtures.retire(officer);fixtures.retire(admin);}
     @Test void fullLifecycleInfoLoopApprovalDisbursementAndClosure(){
         var app=draft();count(0,"SELECT COUNT(*) FROM loans WHERE loan_application_id=?",app.id());
         customer(()->applications.submit(borrower.user(),app.id()));staff(()->applications.staffAction(officer.user(),app.id(),"review","Review"));
         staff(()->applications.staffAction(officer.user(),app.id(),"request-info","Explain purpose"));customer(()->applications.resubmit(borrower.user(),app.id(),"Synthetic details"));
-        staff(()->applications.staffAction(officer.user(),app.id(),"approve","Within policy"));count(0,"SELECT COUNT(*) FROM loans WHERE loan_application_id=?",app.id());
-        var loan=staff(()->disbursement.disburse(officer.user(),app.id(),"Simulated disbursement"));assertEquals("REPAYMENT",loan.status());
+        staff(()->applications.staffAction(officer.user(),app.id(),"approve","Within policy - forwarded to admin"));count(0,"SELECT COUNT(*) FROM loans WHERE loan_application_id=?",app.id());
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,()->staff(()->disbursement.disburse(officer.user(),app.id(),"Officer cannot disburse")));
+        var loan=adminCall(()->disbursement.disburse(admin.user(),app.id(),"Admin final approval and disbursement"));assertEquals("REPAYMENT",loan.status());
         var schedule=customer(()->queries.schedule(borrower.user(),loan.id(),null,0,100));assertEquals(6,schedule.items().size());
         for(var installment:schedule.items())assertEquals(201,customer(()->repayments.repay(borrower.user(),loan.id(),installment.id(),UUID.randomUUID().toString(),new RepayRequest(borrower.source()))).status());
         var closed=customer(()->queries.detail(borrower.user(),loan.id()));assertEquals("CLOSED",closed.status());assertEquals(new BigDecimal("0.00"),closed.outstandingPrincipal());
@@ -63,7 +65,6 @@ class LoanWorkflowTest {
     @Test void ownershipApprovalLimitAndKycAreEnforced(){
         assertThrows(ApiException.class,()->customer(()->applications.create(borrower.user(),new CreateApplication(1L,officer.source(),new BigDecimal("10000.00"),6,"Wrong owner"))));
         var app=draft();customer(()->applications.submit(borrower.user(),app.id()));staff(()->applications.staffAction(officer.user(),app.id(),"review","Review"));
-        // Flush the review before JDBC fixture changes and em.clear().
         em.flush();
         assertEquals("UNDER_REVIEW",jdbc.queryForObject("SELECT status FROM loan_applications WHERE id=?",String.class,app.id()));
         jdbc.update("UPDATE users SET approval_limit=5000.00 WHERE id=?",officer.user());em.clear();
@@ -89,8 +90,8 @@ class LoanWorkflowTest {
         count(1,"SELECT COUNT(*) FROM payments WHERE installment_id=?",id);reconcile(loan.id());
     }
     @Test void adminDemoDateMarksOverdueButCustomerCannotSetIt(){
-        var loan=ready();var first=customer(()->queries.schedule(borrower.user(),loan.id(),null,0,100)).items().getFirst();jdbc.update("UPDATE users SET role='ADMIN' WHERE id=?",officer.user());em.clear();
-        LoanFixtures.as(officer.user(),Role.ADMIN,()->overdue.setDate(officer.user(),first.dueDate().plusDays(1)));LoanFixtures.as(officer.user(),Role.ADMIN,()->overdue.manual(officer.user()));
+        var loan=ready();var first=customer(()->queries.schedule(borrower.user(),loan.id(),null,0,100)).items().getFirst();
+        adminCall(()->overdue.setDate(admin.user(),first.dueDate().plusDays(1)));adminCall(()->overdue.manual(admin.user()));
         assertEquals("OVERDUE",jdbc.queryForObject("SELECT status FROM installments WHERE id=?",String.class,first.id()));
         assertThrows(org.springframework.security.access.AccessDeniedException.class,()->customer(()->overdue.setDate(borrower.user(),first.dueDate())));
     }
@@ -103,9 +104,10 @@ class LoanWorkflowTest {
         mvc.perform(post("/api/loan-applications").cookie(cookie(borrower.user())).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"productId\":1,\"accountId\":"+borrower.source()+",\"principal\":10000,\"months\":6,\"purpose\":\"Synthetic\",\"status\":\"APPROVED\"}")).andExpect(status().isBadRequest());
     }
     private ApplicationView draft(){return customer(()->applications.create(borrower.user(),new CreateApplication(1L,borrower.source(),new BigDecimal("10000.00"),6,"Synthetic purpose")));}
-    private LoanView ready(){var app=draft();customer(()->applications.submit(borrower.user(),app.id()));staff(()->applications.staffAction(officer.user(),app.id(),"review","Review"));staff(()->applications.staffAction(officer.user(),app.id(),"approve","Approve"));return staff(()->disbursement.disburse(officer.user(),app.id(),"Disburse"));}
+    private LoanView ready(){var app=draft();customer(()->applications.submit(borrower.user(),app.id()));staff(()->applications.staffAction(officer.user(),app.id(),"review","Review"));staff(()->applications.staffAction(officer.user(),app.id(),"approve","Approve"));return adminCall(()->disbursement.disburse(admin.user(),app.id(),"Disburse"));}
     private <T>T customer(java.util.function.Supplier<T> call){return LoanFixtures.as(borrower.user(),Role.CUSTOMER,call);}
     private <T>T staff(java.util.function.Supplier<T> call){return LoanFixtures.as(officer.user(),Role.LOAN_OFFICER,call);}
+    private <T>T adminCall(java.util.function.Supplier<T> call){return LoanFixtures.as(admin.user(),Role.ADMIN,call);}
     private void count(long n,String sql,Object...args){assertEquals(n,jdbc.queryForObject(sql,Long.class,args));}
     private void reconcile(long loan){
         em.flush();assertEquals(0,jdbc.queryForObject("SELECT outstanding_principal FROM loans WHERE id=?",BigDecimal.class,loan).compareTo(jdbc.queryForObject("SELECT COALESCE(SUM(principal_amount),0.00) FROM installments WHERE loan_id=? AND status<>'PAID'",BigDecimal.class,loan)));

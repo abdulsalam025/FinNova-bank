@@ -21,7 +21,7 @@ public class DisbursementService {
         this.access=access;this.applications=applications;this.accounts=accounts;this.products=products;this.rules=rules;this.policy=policy;this.engine=engine;
         this.loans=loans;this.installments=installments;this.transitions=transitions;this.ledger=ledger;this.audit=audit;this.clock=clock;
     }
-    @Transactional(isolation=Isolation.READ_COMMITTED)@PreAuthorize("hasAnyRole('LOAN_OFFICER','ADMIN') and #user==authentication.principal.id()")
+    @Transactional(isolation=Isolation.READ_COMMITTED)@PreAuthorize("hasRole('ADMIN') and #user==authentication.principal.id()")
     public LoanView disburse(long user,long id,String reason){
         BankUser actor=access.staff(user);String notes=policy.notes(reason);
         var locator=applications.locator(id).orElseThrow(access::missing);access.noSelfDecision(user,locator.getCustomerId());

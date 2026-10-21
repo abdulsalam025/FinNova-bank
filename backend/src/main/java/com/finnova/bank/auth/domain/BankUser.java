@@ -31,6 +31,11 @@ public class BankUser {
         user.enabled = true; user.passwordChangedAt = now; user.createdAt = now; user.updatedAt = now;
         return user;
     }
+    public static BankUser officer(String email, String name, String hash, Instant now) {
+        BankUser user = customer(email, name, hash, now);
+        user.role = Role.LOAN_OFFICER;
+        return user;
+    }
     public Long getId() { return id; }
     public String getEmail() { return email; }
     public String getFullName() { return fullName; }
@@ -63,5 +68,3 @@ public class BankUser {
         changePassword(hash, now); enabled = true;
     }
 }
-
-
