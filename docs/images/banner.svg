@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" font-family="Segoe UI, Helvetica Neue, Helvetica, Arial, sans-serif">
+  <defs>
+    <radialGradient id="glowL" cx="88%" cy="8%" r="60%">
+      <stop offset="0" stop-color="#8E79F6" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#8E79F6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowC" cx="4%" cy="105%" r="45%">
+      <stop offset="0" stop-color="#D7FF58" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#D7FF58" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#C9B9FF"/>
+      <stop offset="1" stop-color="#8E79F6"/>
+    </linearGradient>
+    <linearGradient id="card2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#26243A"/>
+      <stop offset="1" stop-color="#1D1B2D"/>
+    </linearGradient>
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#FFFFFF" fill-opacity="0.06"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="420" rx="28" fill="#171622"/>
+  <rect width="1280" height="420" rx="28" fill="url(#dots)"/>
+  <rect width="1280" height="420" rx="28" fill="url(#glowL)"/>
+  <rect width="1280" height="420" rx="28" fill="url(#glowC)"/>
+
+  <!-- left: title block -->
+  <g transform="translate(70,0)">
+    <rect x="0" y="62" width="452" height="34" rx="17" fill="#D7FF58" fill-opacity="0.12" stroke="#D7FF58" stroke-opacity="0.45"/>
+    <circle cx="20" cy="79" r="5" fill="#D7FF58"/>
+    <text x="34" y="85" font-size="15" font-weight="700" letter-spacing="1.6" fill="#D7FF58">SYNTHETIC DEMO BANK · COLLEGE PROJECT</text>
+
+    <text x="0" y="178" font-size="84" font-weight="800" fill="#FFFFFF" letter-spacing="-2">FinNova <tspan fill="#B8A4FF">Bank</tspan></text>
+    <text x="2" y="226" font-size="25" fill="#CFCBE6">Secure digital banking, loan origination</text>
+    <text x="2" y="260" font-size="25" fill="#CFCBE6">&amp; staff oversight — in one full-stack app.</text>
+
+    <g font-size="15" font-weight="600">
+      <rect x="0" y="300" width="150" height="38" rx="19" fill="#FFFFFF" fill-opacity="0.07" stroke="#FFFFFF" stroke-opacity="0.16"/>
+      <text x="75" y="324" text-anchor="middle" fill="#EDEBFA">Spring Boot 3.5</text>
+      <rect x="162" y="300" width="160" height="38" rx="19" fill="#FFFFFF" fill-opacity="0.07" stroke="#FFFFFF" stroke-opacity="0.16"/>
+      <text x="242" y="324" text-anchor="middle" fill="#EDEBFA">React 18 · Vite 7</text>
+      <rect x="334" y="300" width="118" height="38" rx="19" fill="#FFFFFF" fill-opacity="0.07" stroke="#FFFFFF" stroke-opacity="0.16"/>
+      <text x="393" y="324" text-anchor="middle" fill="#EDEBFA">MySQL 8.4</text>
+      <rect x="464" y="300" width="156" height="38" rx="19" fill="#D7FF58"/>
+      <text x="542" y="324" text-anchor="middle" fill="#171622" font-weight="800">107 tests ✓ green</text>
+    </g>
+  </g>
+
+  <!-- right: product mock-ups -->
+  <g transform="translate(790,40)">
+    <rect x="60" y="0" width="400" height="300" rx="22" fill="url(#card2)" stroke="#FFFFFF" stroke-opacity="0.10"/>
+    <text x="90" y="38" font-size="14" font-weight="700" letter-spacing="1.4" fill="#9C97B8">LOAN JOURNEY</text>
+    <g font-size="15" fill="#EDEBFA">
+      <circle cx="100" cy="70" r="8" fill="#B8A4FF"/><text x="120" y="75">Customer applies</text>
+      <line x1="100" y1="79" x2="100" y2="97" stroke="#B8A4FF" stroke-opacity="0.5" stroke-width="2"/>
+      <circle cx="100" cy="106" r="8" fill="#B8A4FF"/><text x="120" y="111">Officer verifies &amp; forwards</text>
+      <line x1="100" y1="115" x2="100" y2="133" stroke="#B8A4FF" stroke-opacity="0.5" stroke-width="2"/>
+      <circle cx="100" cy="142" r="8" fill="#D7FF58"/><text x="120" y="147">Admin approves &amp; pays out</text>
+      <line x1="100" y1="151" x2="100" y2="169" stroke="#D7FF58" stroke-opacity="0.5" stroke-width="2"/>
+      <circle cx="100" cy="178" r="8" fill="#D7FF58"/><text x="120" y="183">EMIs repaid → loan closed</text>
+    </g>
+    <rect x="276" y="250" width="172" height="30" rx="15" fill="#D7FF58" fill-opacity="0.14" stroke="#D7FF58" stroke-opacity="0.5"/>
+    <text x="362" y="270" text-anchor="middle" font-size="13" font-weight="700" fill="#D7FF58">AUDITED · IDEMPOTENT</text>
+    <g transform="translate(-10,214) rotate(-5)">
+      <rect x="0" y="0" width="280" height="148" rx="18" fill="url(#card)"/>
+      <text x="20" y="32" font-size="15" font-weight="800" fill="#171622">FinNova</text>
+      <rect x="210" y="15" width="52" height="23" rx="11.5" fill="#171622"/>
+      <text x="236" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="#D7FF58">EMI</text>
+      <text x="20" y="66" font-size="12" fill="#2A2640">Monthly instalment</text>
+      <text x="20" y="100" font-size="31" font-weight="800" fill="#171622">₹8,884.88</text>
+      <text x="20" y="128" font-size="11.5" fill="#2A2640">₹1,00,000 · 12% p.a. · 12 months</text>
+      <g fill="#171622" fill-opacity="0.8">
+        <rect x="212" y="104" width="8" height="22" rx="2"/>
+        <rect x="225" y="93" width="8" height="33" rx="2"/>
+        <rect x="238" y="82" width="8" height="44" rx="2"/>
+        <rect x="251" y="71" width="8" height="55" rx="2"/>
+      </g>
+    </g>
+  </g>
+</svg>
